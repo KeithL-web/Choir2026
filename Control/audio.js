@@ -38,7 +38,7 @@ class AudioTrack
 	#mixer;
 	#is3D;
 	#distScale;
-	constructor(mixer, name, audioUrl,pan, makeMono)
+	constructor(mixer, name, audioUrl, pan, makeMono)
 	{
 		this.#_name = name;
 		this.#mixer = mixer;
@@ -80,7 +80,7 @@ class AudioTrack
 		this.buffer = tempBuffer;
 		tempBuffer = null;
 	}
-	async optimizeAudioBuffer(originalBuffer, forceMono=true)
+	async optimizeAudioBuffer(originalBuffer, forceMono = true)
 	{
 		if (originalBuffer.numberOfChannels !== 2) return originalBuffer;
 		const left = originalBuffer.getChannelData(0);
@@ -104,7 +104,7 @@ class AudioTrack
 			if (isStereo) return originalBuffer;
 		}
 		const monoBuffer = this.audioContext.createBuffer(1, len, originalBuffer.sampleRate);
-		const monoData =monoBuffer.getChannelData(0);
+		const monoData = monoBuffer.getChannelData(0);
 		monoData.set(left);
 		originalBuffer.getChannelData(0).set([]);
 		originalBuffer.getChannelData(1).set([]);
@@ -117,7 +117,7 @@ class AudioTrack
 		this.sourceNode.buffer = this.buffer;
 		this.trackGain.gain.value = this.volume;
 		if (this.#is3D)
-		this.panner.positionX.value=this.panner.positionX.value;
+		this.panner.positionX.value = this.panner.positionX.value;
 		else
 		this.panner.pan.value = this.pan;
 		this.sourceNode.connect(this.trackGain);
@@ -223,7 +223,7 @@ class AudioMixer extends EventTarget
 {
 	#mDuration;
 	#mPlaybackRate;
-	constructor(use3dSound=false)
+	constructor(use3dSound = false)
 	{
 		super();
 		this.use3d = use3dSound;
@@ -303,7 +303,7 @@ class AudioMixer extends EventTarget
 	getIndex(track)
 	{
 		for (let i = 0; i < this.tracks.length; i++)
-		if (this.tracks[i]===track) return i;
+		if (this.tracks[i] === track) return i;
 		return -1;
 	}
 	async loadTracks()

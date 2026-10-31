@@ -1,22 +1,64 @@
 <html>
-<head><title>Psalters Choir Practice</title> 
-<script src='./Control/log.js'></script></head>
+<head><title>Psalters Choir Practice</title>
+<script defer>
+                console.log('Here I am in script');
+                function GotoIndex(index)
+                {
+ 
+                    const anchors=document.getElementsByTagName('a');
+                    index%=anchors.length;
+                    if (index<0) index+=anchors.length;
+                    anchors[index].click();
+                }
+
+                function GotoName(name)
+                {
+                    const anchors=document.getElementsByTagName('a');
+                    let k=-1;
+                    for(let i=0;i<anchors.length;i++)
+                    {
+                        if (anchors[i].innerText===name)
+                        {
+                            k=i;
+                            break;
+                        }
+                    }
+                    if (k>=0) anchors[k].click();
+
+                }
+
+                function onload()
+                {
+                    console.log('Here I am in onload');
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const index = urlParams.get('index'); 
+                    if (index)
+                        GotoIndex(index);
+                    else
+                    {
+                        const name = urlParams.get('name');                         
+                        if (name) GotoName(name);
+                    }
+                }
+
+                document.addEventListener('DOMContentLoaded',onload);
+                
+                </script><script src='./Control/log.js'></script><style> a {color: blue;text-decoration:none;}</style> </head>
 <body style='font-family:Arial;font-size:16pt'>
 <H1>Psalters Choir Practice</H1>
-<a href='God Rest Ye Merry Gentlemen_Web/index.html'>God Rest Ye Merry Gentlemen</a></br><ul>
-<li><a href='God Rest Ye Merry Gentlemen_Web/God Rest Ye Merry Gentlemen/index.html'>God Rest Ye Merry Gentlemen</a>
-</ul><br>
-<a href='Grace To Glory_Web/index.html'>Grace To Glory</a></br><ul>
-<li><a href='Grace To Glory_Web/Because of Love/index.html'>Because of Love</a>
-<li><a href='Grace To Glory_Web/Come To Me/index.html'>Come To Me</a>
-<li><a href='Grace To Glory_Web/Forsaken/index.html'>Forsaken</a>
-<li><a href='Grace To Glory_Web/Great Is Thy Faithfullness/index.html'>Great Is Thy Faithfullness</a>
-<li><a href='Grace To Glory_Web/Introit/index.html'>Introit</a>
-<li><a href='Grace To Glory_Web/People Need The Lord All/index.html'>People Need The Lord All</a>
-<li><a href='Grace To Glory_Web/Your Sanctuary/index.html'>Your Sanctuary</a>
-</ul><br>
-<a href='We Are The Reason_Web/index.html'>We Are The Reason</a></br><ul>
-<li><a href='We Are The Reason_Web/We Are The Reason/index.html'>We Are The Reason</a>
-</ul><br>
+<H2>God Rest Ye Merry Gentlemen</H2><ul><li><a href='God Rest Ye Merry Gentlemen_Web/01 God Rest Ye Merry Gentlemen/index.html?index=0'>God Rest Ye Merry Gentlemen</a>
+</ul>
+<H2>Grace To Glory</H2><ol type='i'>
+<li><a href='Grace To Glory_Web/01 Introit/index.html?index=1'>Introit</a>
+<li><a href='Grace To Glory_Web/02 Great Is Thy Faithfullness/index.html?index=2'>Great Is Thy Faithfullness</a>
+<li><a href='Grace To Glory_Web/03 Forsaken/index.html?index=3'>Forsaken</a>
+<li><a href='Grace To Glory_Web/04 Because of Love/index.html?index=4'>Because of Love</a>
+<li><a href='Grace To Glory_Web/05 Come To Me/index.html?index=5'>Come To Me</a>
+<li><a href='Grace To Glory_Web/06 Your Sanctuary/index.html?index=6'>Your Sanctuary</a>
+<li><a href='Grace To Glory_Web/07 People Need The Lord All/index.html?index=7'>People Need The Lord All</a>
+<li><a href='Grace To Glory_Web/08 No More Night/index.html?index=8'>No More Night</a>
+</ol>
+<H2>We Are The Reason</H2><ul><li><a href='We Are The Reason_Web/01 We Are The Reason/index.html?index=9'>We Are The Reason</a>
+</ul>
 </body>
 </html>

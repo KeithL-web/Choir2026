@@ -35,6 +35,11 @@ function buildName(...parts)
 {
 	return parts.join(' ');
 }
+function query(name)
+{
+	const urlParams = new URLSearchParams(window.location.search);
+	return urlParams.get(name);
+}
 function getValue(name, defaultValue)
 {
 	const value = localStorage.getItem(name);
@@ -127,14 +132,22 @@ function FixButton(button, disable)
 	button.disabled = disable;
 	button.style.backgroundColor = disable ? "gray" : "#202020";
 }
-function SetFontEnables()
+async function SetFontEnables()
 {
-	FixButton(btnInc, fontSize >= 200);
-	FixButton(btnDec, fontSize <=70);
-	FixButton(btnNorm, fontSize > 95 && fontSize < 105)
-	document.getElementById("lyrics").style.fontSize = fontSize + '%';
-	btnNorm.innerHTML = 5 * Math.round(fontSize / 5) + "<sup>%</sup>";
-	CheckFontSizes();
+	try
+	{
+		await IncMouse();
+		FixButton(btnInc, fontSize >= 200);
+		FixButton(btnDec, fontSize <=70);
+		FixButton(btnNorm, fontSize > 95 && fontSize < 105);
+		document.getElementById("lyrics").style.fontSize = fontSize + '%';
+		btnNorm.innerHTML = 5 * Math.round(fontSize / 5) + "<sup>%</sup>";
+		CheckFontSizes();
+	}
+	finally
+	{
+		DecMouse();
+	}
 }
 function DoDec()
 {
@@ -933,9 +946,10 @@ function CheckForAutoScroll(instant, lowBarData)
 	let createdInner = null;
 	function CreateInnerCell()
 	{
-		if (createdInner !== null) return createdInner;
+		if (createdInner !== null) return createdInner.cloneNode(true);
 		let span, xtd;
 		let td = document.createElement('td');
+		td.style.width = '2em';
 		td.setAttribute('ot', '');
 		let innerTable = document.createElement('table');
 		innerTable.setAttribute('st', '');
@@ -981,59 +995,52 @@ function CheckForAutoScroll(instant, lowBarData)
 			temp[i].classList.toggle('hide', !val);
 		}
 	}
-	function SetVHides()
+	async function ToggleSignatureColumn(event)
 	{
-		let barVis = document.getElementById('barHide').checked;
-		if (barVis)
+		await IncMouse();
+		try
 		{
-			SetVisibility('v1', false);
-			SetVisibility('v2', false);
+			let val = !event.srcElement.checked;
+			let temp = mainTable.rows;
+			for (let i = 0; i < temp.length; i++)
+			{
+				if (temp[i].hasAttribute('t'))
+				{
+					temp[i].cells[0].classList.toggle('hide', val);
+				}
+			}
+			SetVisibility('v1', val);
+			CheckFontSizes();
 		}
-		else
+		finally
 		{
-			let partVis = document.getElementById('partHide').checked;
-			if (partVis)
-			{
-				SetVisibility('v1', false);
-				SetVisibility('v2', true);
-			}
-			else
-			{
-				SetVisibility('v1', true);
-				SetVisibility('v2', false);
-			}
+			DecMouse();
 		}
 	}
-	function ToggleSignatureColumn(event)
+	async function TogglePartColumn(event)
 	{
-		let val=!event.srcElement.checked;
-		let temp = mainTable.rows;
-		for (let i = 0; i < temp.length; i++)
+		try
 		{
-			if (temp[i].hasAttribute('t'))
+			await IncMouse();
+			let table = mainTable.getElementsByTagName('table');
+			let val = !event.srcElement.checked;
+			for (let i = 0; i < table.length; i++)
 			{
-				temp[i].cells[0].classList.toggle('hide', val);
+				if (table[i].hasAttribute('fx'))
+				{
+					//let rows = table[i].getElementsByTagName('tr');
+					let rows = table[i].rows;
+					for (let r = 0; r < rows.length; r++)
+					if (r == 0 || rows[r].hasAttribute('tot')) rows[r].cells[0].classList.toggle('hide', val);
+					else if (rows[r].hasAttribute('dr')) rows[r].cells[0].classList.toggle('hide', val);
+				}
 			}
+			CheckFontSizes();
 		}
-		SetVisibility('v1', val)
-		CheckFontSizes();
-	}
-	function TogglePartColumn(event)
-	{
-		let table = mainTable.getElementsByTagName('table');
-		let val = !event.srcElement.checked;
-		for (let i = 0; i < table.length; i++)
+		finally
 		{
-			if (table[i].hasAttribute('fx'))
-			{
-				//let rows = table[i].getElementsByTagName('tr');
-				let rows = table[i].rows;
-				for (let r = 0; r < rows.length; r++)
-				if (r==0||rows[r].hasAttribute('tot')) rows[r].cells[0].classList.toggle('hide', val);
-				else if (rows[r].hasAttribute('dr')) rows[r].cells[0].classList.toggle('hide',val);
-			}
+			DecMouse();
 		}
-		CheckFontSizes();
 	}
 	function FixTable()
 	{
@@ -1061,8 +1068,7 @@ function CheckForAutoScroll(instant, lowBarData)
 		minPosValue = 99999999;
 		maxPosValue = -99999999;
 		positionData[0] = new BarData(0, 0, 0, 0, 0, 0, null,false);
-		let infoCell = CreateInnerCell();
-		infoCell.style.width='2em';
+		//let infoCell = CreateInnerCell();
 		let beatsPerBar, beatSize;
 		for (let index = 0; index < nRows; index++)
 		{
@@ -1161,7 +1167,7 @@ function CheckForAutoScroll(instant, lowBarData)
 			}
 			if (dataType!=1)
 			{
-				td = infoCell.cloneNode(true);
+				td = CreateInnerCell();
 				row.insertAdjacentElement('afterbegin', td);
 				let span = td.querySelector('#timeSpan');
 				if (isBar) span.innerText = bar + ":" + beatNo;
@@ -1360,8 +1366,9 @@ function CheckForAutoScroll(instant, lowBarData)
 		barCell.style.padding = padding;
 		barCell.style.borderRight = '1px solid white';
 		innerTable = CreateTable(barCell);
-		CreateButton('button', 'Index', "Go to Index", innerTable.insertRow().insertCell(), Up1);
-		CreateButton('button', 'Home', "Go to Main Index", innerTable.insertRow().insertCell(), Up2);
+		CreateButton('button', 'Home', "Go to Main Index", innerTable.insertRow().insertCell(), () => NavBy(0));
+		CreateButton('button', 'Next', "Next Song", innerTable.insertRow().insertCell(), () => NavBy(1));
+		CreateButton('button', 'Prev', "Previous Song", innerTable.insertRow().insertCell(), () => NavBy(-1));
 		if (dataType != 1)
 		{
 			barCell = barRow.insertCell();
@@ -1396,6 +1403,9 @@ function CheckForAutoScroll(instant, lowBarData)
 			innerCell.innerText = 'Show/Hide';
 			CreateCheckbox('barHide', 'SHB', 'Bar/Sig', 'Check to view Signature and Bar column. Uncheck for more space', innerTable.insertRow().insertCell(), ToggleSignatureColumn).checked = true;
 			CreateCheckbox('partHide', 'SHB', 'Part', 'Check to View Parts (S,A,T,B etc.) column. Uncheck for more space', innerTable.insertRow().insertCell(), TogglePartColumn).checked = true;
+			CreateCheckbox('jumpHide', 'SHB', 'Steps', 'Check to show number of steps difference. Uncheck to hide', innerTable.insertRow().insertCell(), ToggleJumps).checked = false;
+			CreateCheckbox('dirHide', 'SHB', 'Directions', 'Check to show directions. Uncheck to hide', innerTable.insertRow().insertCell(), ToggleJumps).checked = true;
+			SetJumpVisible('z', false);
 			if (mixer.count > 1)
 			{
 				barCell = barRow.insertCell();
@@ -1563,14 +1573,22 @@ function CheckForAutoScroll(instant, lowBarData)
 			eleTreble.innerText = value + '%';
 			saveValue('Treble', value);
 		}
-		function SortParts(order)
+		async function SortParts(order)
 		{
-			sortParts(order);
-			const cb = document.getElementById(order);
-			if (cb)
+			await IncMouse();
+			try
 			{
-				cb.checked = true;
-				saveValue("SortParts", order)
+				const cb = document.getElementById(order);
+				if (cb)
+				{
+					cb.checked = true;
+					saveValue("SortParts", order)
+				}
+				sortParts(order);
+			}
+			finally
+			{
+				DecMouse()
 			}
 		}
 		if (dataType == 1)
@@ -1593,13 +1611,16 @@ function CheckForAutoScroll(instant, lowBarData)
 		window.addEventListener('resize',  EnsureCorrectSizes);
 		UpdateStatus();
 	}
-	function Up1()
+	function NavBy(inc)
 	{
-		window.location.href = '../index.html';
-	}
-	function Up2()
-	{
-		window.location.href = '../../index.html';
+		let href = '../../index.html';
+		if (inc != 0)
+		{
+			const index = +query('index') + inc;
+			href += '?index=' + index;
+		}
+		console.log("Here I am in NavBy(" + inc +")");
+		window.location.href = href;
 	}
 	function SetVolume(value)
 	{
@@ -1734,6 +1755,30 @@ function CheckForAutoScroll(instant, lowBarData)
 	{
 		let how = event.srcElement.id;
 		SortParts(how);
+	}
+	async function ToggleJumps(event)
+	{
+		const tag = (event.target.id == 'dirHide') ? 'w' : 'z';
+		await SetJumpVisible(tag, event.target.checked);
+	}
+	async function SetJumpVisible(tag,show)
+	{
+		try
+		{
+			await IncMouse();
+			const elements = document.querySelectorAll(tag);
+			const disp = show ? 'inline-flex' : 'none';
+			elements.forEach(element =>
+			{
+				if (disp == element.style.display) return;
+				element.style.display = disp;
+			});
+			CheckFontSizes();
+		}
+		finally
+		{
+			DecMouse();
+		}
 	}
 	function ShowHideRows(event)
 	{
@@ -1982,66 +2027,73 @@ function CheckForAutoScroll(instant, lowBarData)
 			document.write("<span color='red'>Too Many Login Attempts</span>");
 			return;
 		}
-		let arr = (typeof arrSources !== "undefined") ? arrSources : [];
-		let theSongs = arr;
-		if (arr.length == 0)
+		try
 		{
-			arr = [
-			new Item("Orig", "Song.mp3", 0,false),
-			new Item("Sop", "SongS.mp3", 1, true),
-			new Item("Alto", "SongA.mp3", -1, true),
-			new Item("Tenor", "SongT.mp3", 1, true),
-			new Item("Bass", "SongB.mp3", -1, true),
-			new Item("Music", "SongM.mp3", 0,false)
-			];
-			const checkPromises = arr.map(async (item) =>
+			await IncMouse();
+			let arr = (typeof arrSources !== "undefined") ? arrSources : [];
+			let theSongs = arr;
+			if (arr.length == 0)
 			{
-				const exists = await checkFileExists("./" + item.audioUrl);
-				return exists ? item : null;
-			});
-			const results = await Promise.all(checkPromises);
-			theSongs = results.filter(item => item !== null);
-		}
-		let promise = null;
-		if (theSongs.length> 0)
-		{
-			mixer = new AudioMixer();
-			for (let i = 0; i < theSongs.length; i++)
-			{
-				const track = new AudioTrack(mixer, theSongs[i].name, theSongs[i].audioUrl, theSongs[i].pan, theSongs[i].makeMono);
-				mixer.addTrack(track);
+				arr = [
+				new Item("Orig", "Song.mp3", 0, false),
+				new Item("Sop", "SongS.mp3", 1, true),
+				new Item("Alto", "SongA.mp3", -1, true),
+				new Item("Tenor", "SongT.mp3", 1, true),
+				new Item("Bass", "SongB.mp3", -1, true),
+				new Item("Music", "SongM.mp3", 0, false)
+				];
+				const checkPromises = arr.map(async (item) =>
+				{
+					const exists = await checkFileExists("./" + item.audioUrl);
+					return exists ? item : null;
+				});
+				const results = await Promise.all(checkPromises);
+				theSongs = results.filter(item => item !== null);
 			}
-			promise = mixer.loadTracks();
-		}
-		else
-		{
-			mixer = new AudioController();
-			promise = await mixer.load('Song.mp3');
-		}
-		await Setup();
-		mixer.currentPosition = theBegining;
-		if (!isTouchDeviceOrNoScores) MoreSetup();
-		container.style.display = 'flex';
-		SetHorizontalLayout();
-		window.addEventListener("beforeprint", BeforePrint);
-		window.addEventListener("afterprint", AfterPrint);
-		window.addEventListener('resize', DoExternalResize);
-		FixTopBar();
-		setTimeout(CheckFontSizes,250);
-		SetKeepPlaying();
+			let promise = null;
+			if (theSongs.length > 0)
+			{
+				mixer = new AudioMixer();
+				for (let i = 0; i < theSongs.length; i++)
+				{
+					const track = new AudioTrack(mixer, theSongs[i].name, theSongs[i].audioUrl, theSongs[i].pan, theSongs[i].makeMono);
+					mixer.addTrack(track);
+				}
+				promise = mixer.loadTracks();
+			}
+			else
+			{
+			}
+			await Setup();
+			mixer.currentPosition = theBegining;
+			mixer.masterPitch = 500;
+			if (!isTouchDeviceOrNoScores) MoreSetup();
+			container.style.display = 'flex';
+			SetHorizontalLayout();
+			window.addEventListener("beforeprint", BeforePrint);
+			window.addEventListener("afterprint", AfterPrint);
+			window.addEventListener('resize', DoExternalResize);
+			FixTopBar();
+			setTimeout(CheckFontSizes, 250);
+			SetKeepPlaying();
+			Object.defineProperty(DOMRect.prototype, 'contains', {
+			value: function (x, y)
+			{
+				if (x < this.left || y < this.top || x > this.right || y > this.bottom) return false;
+				return true;
+			},
+			enumerable: false
+		});
+		document.addEventListener('mousemove', ShowNote);
 		if (promise != null) await promise;
 		document.getElementById('message').style.display = 'none';
 		document.getElementById('pardiv').setAttribute('aria-busy', 'false');
-		Object.defineProperty(DOMRect.prototype, 'contains', {
-		value: function (x,y)
-		{
-			if (x < this.left || y < this.top||x>this.right||y>this.bottom) return false;
-			return  true;
-		},
-		enumerable: false
-	});
-	document.addEventListener('mousemove', ShowNote);
-	blnReady = true;
+		blnReady = true;
+	}
+	finally
+	{
+		DecMouse();
+	}
 }
 function ShowNote(event)
 {
@@ -2061,7 +2113,7 @@ function ShowNote(event)
 	}
 	currentNote.innerText = '-';
 }
-class AudioController extends EventTarget
+class AudioControllerXXXXX extends EventTarget
 {
 	constructor()
 	{
@@ -2273,3 +2325,13 @@ class AudioController extends EventTarget
 	}
 }
 setTimeout(DoItAll, 0);
+if (performance.memory)
+{
+	console.log("JavaScript Heap Limits & Usage:");
+	console.log(`Total Heap Size: ${(performance.memory.totalJSHeapSize / 1024 / 1024).toFixed(2)} MB`);
+	console.log(`Used Heap Size: ${(performance.memory.usedJSHeapSize / 1024 / 1024).toFixed(2)} MB`);
+	console.log(`Heap Size Limit: ${(performance.memory.jsHeapSizeLimit / 1024 / 1024).toFixed(2)} MB`);
+} else
+{
+	console.log("performance.memory is not supported in this browser.");
+}

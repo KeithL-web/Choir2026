@@ -36,7 +36,7 @@ function ShowParts(parts)
 			if (ind >= 0)
 			{
 				let vis = parts[ind + 1];
-				if (vis == 'V')
+				if (vis === 'V')
 				{
 					rows[i].style.display = 'table-row';
 					gotVis = true;
@@ -57,6 +57,22 @@ function sortParts(order)
 	let m = tables.length;
 	for (let t = 0; t < m; t++)
 	{
+		let nc = tables[t].getAttribute('cs');
+		if (nc)
+		{
+			let aRow = document.createElement('tr');
+			let aCell = aRow.insertCell();
+			aCell.setAttribute('w20', '');
+			aCell.setAttribute('brt', '');
+			let w = (100 / nc) + '%';
+			for (let c = 0; c < nc; c++)
+			{
+				aCell = aRow.insertCell();
+				aCell.style.width = w;
+				aCell.style.maxWidth = w;
+			}
+			tables[t].prepend(aRow);
+		}
 		let rows = tables[t].querySelectorAll('tr[PL]');
 		const forSorting = [...rows];
 		if (forSorting.length > 1)
@@ -101,7 +117,7 @@ function FixRows(data)
 						case 'L': hasLadies = true; break;
 						case 'E': hasAll = true; break;
 						case '!': break;
-						default : hasOther = true; break;
+						default: hasOther = true; break;
 					}
 					if (part != null)
 					{
@@ -152,22 +168,123 @@ function FixRows(data)
 		const el = elements[i];
 		el.style.verticalAlign = VA_ToOffset(el.getAttribute('VA'));
 	}
-}
-function CheckFontSizes()
-{
-	let yTags = document.getElementsByTagName('y');
-	for (let c = 0; c < yTags.length; c++)
+	const up = '\u2191';
+	const upRight = '\u2197';
+	const right = '\u2192';
+	const down = '\u2193';
+	const downRight = '\u2198';
+	elements = document.querySelectorAll('w[d]');
+	for (let i = 0; i < elements.length; i++)
 	{
-		let yTag = yTags[c];
-		yTag.style.transform = '';
-		let cell = yTag.closest('td');
-		let sw = cell.scrollWidth;
-		let cw = cell.clientWidth;
-		if (cw < sw)
+		const el = elements[i];
+		const diff = el.getAttribute('d');
+		const z = document.createElement('z');
+		z.innerText = Math.abs(diff);
+		const oct = (Math.floor(diff / 7) * 7) === diff;
+		let color;
+		if (oct)
 		{
-			let scale = cw / sw;
-			if (scale < 0.2) scale = 0.2;
-			yTag.style.transform = 'scaleX(' + scale + ')';
+			color = diff < 0 ? 'blue' : 'red';
 		}
+		else
+		{
+			const computedStyle = window.getComputedStyle(el);
+			let hex = HexColor(computedStyle.color);
+			hex &= 0xFFFFFF;
+			hex >>>= 0;
+			hex = ~hex;
+			hex &= 0xFCFCFC;
+			hex >>>= 2;
+			hex = ~hex;
+			hex &= 0xFFFFFF;
+			hex >>>= 0;
+			color = diff < 0 ? "#" + hex.toString(16): 'white';
+		}
+		z.style.background = color;
+		el.after(z);
+		let ind;
+		if (diff >= 4) ind = up;
+		else if (diff > 0) ind = upRight;
+		else if (diff == 0) ind = right;
+		else if (diff <= -4) ind = down;
+		else ind = downRight;
+		el.innerText += ind;
+	}
+}
+const canvasContext = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+;
+function HexColor(colorName)
+{
+	canvasContext.fillStyle = colorName;
+	canvasContext.fillRect(0, 0, 1, 1);
+	const [r, g, b, a] = canvasContext.getImageData(0, 0, 1, 1).data;
+	return (b + (g << 8) + (r << 16) + (255 << 24)) >>> 0;
+}
+function AddCSS(css)
+{
+	const style = document.createElement('style');
+	style.textContent = css;
+	document.head.appendChild(style);
+	return style;
+}
+const waitSheet = AddCSS('*{ cursor: wait !important; }');
+waitSheet.disabled = true;
+let cursorDepth = 0;
+let renderPromise = null;
+const yieldForRender = () => new Promise(resolve =>
+{
+	requestAnimationFrame(() =>
+	{
+		requestAnimationFrame(resolve);
+	});
+});
+async function IncMouse()
+{
+	cursorDepth++;
+	if (cursorDepth === 1)
+	{
+		document.body.style.pointerEvents = "none";
+		waitSheet.disabled = false;
+		renderPromise = yieldForRender();
+	}
+	if (renderPromise) await yieldForRender();
+}
+function DecMouse()
+{
+	if (cursorDepth >= 1)
+	{
+		cursorDepth--;
+		if (cursorDepth === 0)
+		{
+			renderPromise = null;
+			waitSheet.disabled = true;
+			document.body.style.pointerEvents = "auto";
+		}
+	}
+}
+async function CheckFontSizes()
+{
+	await IncMouse();
+	try
+	{
+		let yTags = document.getElementsByTagName('y');
+		for (let c = 0; c < yTags.length; c++)
+		{
+			let yTag = yTags[c];
+			yTag.style.transform = '';
+			let cell = yTag.closest('td');
+			let sw = cell.scrollWidth;
+			let cw = cell.clientWidth;
+			if (cw < sw)
+			{
+				let scale = cw / sw;
+				if (scale < 0.2) scale = 0.2;
+				yTag.style.transform = 'scaleX(' + scale + ')';
+			}
+		}
+	}
+	finally
+	{
+		DecMouse();
 	}
 }
