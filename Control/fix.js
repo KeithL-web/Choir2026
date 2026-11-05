@@ -19,7 +19,7 @@ function MySort(a, b)
 	if (valB < 0) valB = 999;
 	return valA - valB;
 }
-function ShowParts(parts)
+function showParts(parts)
 {
 	const tables = document.querySelectorAll("table[fx]");
 	let m = tables.length;

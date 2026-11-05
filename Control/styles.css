@@ -116,6 +116,7 @@ v1 {display:inline-block;line-Height:1;position:absolute;top:1px;left:1px;font-s
 [PR] {position:relative;}
 [_l] {text-align:left}
 [_r] {text-align:right}
+[_fr] {float:right}
 [_c] {text-align:center}
 [_j] {text-align:justify}
 [_n] {border:0}

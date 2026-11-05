@@ -29,6 +29,7 @@ const vaSkip = -10.46875 - va0;
 function saveValue(name, value)
 {
 	if (!blnReady) return;
+	console.log("save " + name + "=" + value);
 	localStorage.setItem(name, JSON.stringify(value));
 }
 function buildName(...parts)
@@ -111,11 +112,6 @@ function OnResumeOrPlay()
 	blnStopped = false;
 	UpdateStatus();
 }
-function OnPlayEnd()
-{
-	StopMonitor();
-	mixer.stop();
-}
 function SetPosLabel(value = null)
 {
 	if (value != null)
@@ -172,7 +168,6 @@ function DoPlay()
 		if (mixer.currentPosition < theBegining) mixer.currentPosition = theBegining;
 		if (!blnPlayButtonsLocked) mixer.play();
 		MonitorRow();
-		radioPlayOnClick.checked = true;
 	}
 	else
 	{
@@ -237,7 +232,7 @@ function AutoTableClick(event)
 	const td = event.currentTarget;
 	const tr = td.parentElement;
 	const row = tr.parentElement.closest('tr');
-	if ('play' === playHow)
+	if ('play' === playHow||'sync'==playHow)
 	{
 		//	const row = tr.parentElement.closest('tr');
 		let prop = 0 + td.getAttribute('o') / tr.getAttribute('tot');
@@ -380,7 +375,7 @@ function RowClick(event)
 		const row = event.srcElement.closest('tr');
 		MoveToRow(row);
 	}
-	else if (playHow==='play')
+	else if (playHow==='play'||playHow=='sync')
 	{
 		let now = new Date().getTime();
 		if (now - rowClickTime < 500) return;
@@ -985,7 +980,7 @@ function CheckForAutoScroll(instant, lowBarData)
 	}
 	let mainTable;
 	const dicVisible = { v1: false, v2: false };
-	function SetVisibility(vWhat, val)
+	function setTagNameVisibility(vWhat, val)
 	{
 		if (dicVisible[vWhat] === val) return;
 		dicVisible[vWhat] = val;
@@ -993,53 +988,6 @@ function CheckForAutoScroll(instant, lowBarData)
 		for (let i = 0; i < temp.length; i++)
 		{
 			temp[i].classList.toggle('hide', !val);
-		}
-	}
-	async function ToggleSignatureColumn(event)
-	{
-		await IncMouse();
-		try
-		{
-			let val = !event.srcElement.checked;
-			let temp = mainTable.rows;
-			for (let i = 0; i < temp.length; i++)
-			{
-				if (temp[i].hasAttribute('t'))
-				{
-					temp[i].cells[0].classList.toggle('hide', val);
-				}
-			}
-			SetVisibility('v1', val);
-			CheckFontSizes();
-		}
-		finally
-		{
-			DecMouse();
-		}
-	}
-	async function TogglePartColumn(event)
-	{
-		try
-		{
-			await IncMouse();
-			let table = mainTable.getElementsByTagName('table');
-			let val = !event.srcElement.checked;
-			for (let i = 0; i < table.length; i++)
-			{
-				if (table[i].hasAttribute('fx'))
-				{
-					//let rows = table[i].getElementsByTagName('tr');
-					let rows = table[i].rows;
-					for (let r = 0; r < rows.length; r++)
-					if (r == 0 || rows[r].hasAttribute('tot')) rows[r].cells[0].classList.toggle('hide', val);
-					else if (rows[r].hasAttribute('dr')) rows[r].cells[0].classList.toggle('hide', val);
-				}
-			}
-			CheckFontSizes();
-		}
-		finally
-		{
-			DecMouse();
 		}
 	}
 	function FixTable()
@@ -1352,6 +1300,7 @@ function CheckForAutoScroll(instant, lowBarData)
 		CreateRadio('nothing', 'RC', 'do nothing', 'When selected, clicking a row will have no effect', innerTable.insertRow().insertCell(), DoWhatOnClick);
 		radioPlayOnClick = CreateRadio('play', 'RC', 'play music', 'When selected, the music will start playing at the point where the table is clicked', innerTable.insertRow().insertCell(), DoWhatOnClick);
 		radioPlayOnClick.checked = true;
+		CreateRadio('sync', 'RC', 'play synced', 'Same as "play music", but  audio lag will be accounted for. This is required if you need to sync with external source, especially on a hand-held device. You might want to turn sound here to zero', innerTable.insertRow().insertCell(), DoWhatOnClick);
 		CreateRadio('highlight', 'RC', 'highlight row only', 'When selected, the music will not play but row will be highlighted', innerTable.insertRow().insertCell(), DoWhatOnClick);
 		playHow = 'play';
 		barCell = barRow.insertCell();
@@ -1389,11 +1338,11 @@ function CheckForAutoScroll(instant, lowBarData)
 			innerCell = innerTable.insertRow().insertCell();
 			innerCell.style.textAlign = 'center';
 			innerCell.innerText = 'Visible Parts';
-			if (hasSop || hasLadies) CreateCheckbox('S', 'SHR', 'Sop/Ladies', 'Uncheck to hide Sop, check to view Sop ', innerTable.insertRow().insertCell(), ShowHideRows).checked = true;
-			if (hasAlto || hasLadies) CreateCheckbox('A', 'SHR', 'Alto/Ladies', 'Uncheck to hide Alto, check to view Alto', innerTable.insertRow().insertCell(), ShowHideRows).checked = true;
-			if (hasTenor || hasMen) CreateCheckbox('T', 'SHR', 'Tenor/Men', 'Uncheck to hide Tenor, check to view Tenor', innerTable.insertRow().insertCell(), ShowHideRows).checked = true;
-			if (hasBass || hasMen) CreateCheckbox('B', 'SHR', 'Bass/Men', 'Uncheck to hide Bass, check to view Bass', innerTable.insertRow().insertCell(), ShowHideRows).checked = true;
-			if (hasOther) CreateCheckbox('z', 'SHR', 'Other', 'Uncheck to hide anything else, check to view anything else', innerTable.insertRow().insertCell(), ShowHideRows).checked = true;
+			if (hasSop || hasLadies) CreateCheckbox('S', 'SHR', 'Sop/Ladies', 'Uncheck to hide Sop, check to view Sop ', innerTable.insertRow().insertCell(), showHideRows).checked = true;
+			if (hasAlto || hasLadies) CreateCheckbox('A', 'SHR', 'Alto/Ladies', 'Uncheck to hide Alto, check to view Alto', innerTable.insertRow().insertCell(), showHideRows).checked = true;
+			if (hasTenor || hasMen) CreateCheckbox('T', 'SHR', 'Tenor/Men', 'Uncheck to hide Tenor, check to view Tenor', innerTable.insertRow().insertCell(), showHideRows).checked = true;
+			if (hasBass || hasMen) CreateCheckbox('B', 'SHR', 'Bass/Men', 'Uncheck to hide Bass, check to view Bass', innerTable.insertRow().insertCell(), showHideRows).checked = true;
+			if (hasOther) CreateCheckbox('z', 'SHR', 'Other', 'Uncheck to hide anything else, check to view anything else', innerTable.insertRow().insertCell(), showHideRows).checked = true;
 			barCell = barRow.insertCell();
 			barCell.style.padding = padding;
 			if (mixer.count > 1) barCell.style.borderRight = '1px solid white';
@@ -1401,11 +1350,10 @@ function CheckForAutoScroll(instant, lowBarData)
 			innerCell = innerTable.insertRow().insertCell();
 			innerCell.style.textAlign = 'center';
 			innerCell.innerText = 'Show/Hide';
-			CreateCheckbox('barHide', 'SHB', 'Bar/Sig', 'Check to view Signature and Bar column. Uncheck for more space', innerTable.insertRow().insertCell(), ToggleSignatureColumn).checked = true;
-			CreateCheckbox('partHide', 'SHB', 'Part', 'Check to View Parts (S,A,T,B etc.) column. Uncheck for more space', innerTable.insertRow().insertCell(), TogglePartColumn).checked = true;
-			CreateCheckbox('jumpHide', 'SHB', 'Steps', 'Check to show number of steps difference. Uncheck to hide', innerTable.insertRow().insertCell(), ToggleJumps).checked = false;
-			CreateCheckbox('dirHide', 'SHB', 'Directions', 'Check to show directions. Uncheck to hide', innerTable.insertRow().insertCell(), ToggleJumps).checked = true;
-			SetJumpVisible('z', false);
+			CreateCheckbox('barHide', 'SHB', 'Bar/Sig', 'Check to view Signature and Bar column. Uncheck for more space', innerTable.insertRow().insertCell(), signatureColumnClicked);
+			CreateCheckbox('partHide', 'SHB', 'Part', 'Check to View Parts (S,A,T,B etc.) column. Uncheck for more space', innerTable.insertRow().insertCell(), partColumnClicked);
+			CreateCheckbox('jumpHide', 'SHB', 'Steps', 'Check to show number of steps difference. Uncheck to hide', innerTable.insertRow().insertCell(), JumpsOrDirectionsClicked);
+			CreateCheckbox('dirHide', 'SHB', 'Directions', 'Check to show directions. Uncheck to hide', innerTable.insertRow().insertCell(), JumpsOrDirectionsClicked);
 			if (mixer.count > 1)
 			{
 				barCell = barRow.insertCell();
@@ -1423,7 +1371,7 @@ function CheckForAutoScroll(instant, lowBarData)
 				{
 					let tr = mixer.getTrackByIndex(i);
 					const vol = getSavedTrackValue('vol', tr.name, 1 / mixer.count);
-					const lrPan = getSavedTrackValue('lrPan', tr.name, 0);
+					const lrPan = getSavedTrackValue('lrPan', tr.name, tr.pan);
 					let sliderVol = CreateRange(0, vol, 1, 0.05);
 					sliderVol.className = 'sliderVol';
 					sliderVol.style.width = '100px';
@@ -1434,16 +1382,10 @@ function CheckForAutoScroll(instant, lowBarData)
 					row.insertCell().innerText = tr.name;
 					row.insertCell().appendChild(sliderVol);
 					row.insertCell().appendChild(sliderPan);
-					sliderVol.addEventListener('input', (event) =>
-					{
-						tr.volume = sliderVol.value;
-						saveTrackValue('vol', tr.name, sliderVol.value);
-					});
-					sliderPan.addEventListener('input', (event) =>
-					{
-						tr.pan = sliderPan.value;
-						saveTrackValue('lrPan', tr.name, sliderPan.value);
-					});
+					sliderVol.addEventListener('input', (event) => tr.volume = sliderVol.value);
+					sliderVol.addEventListener('change', (event) => saveTrackValue('vol', tr.name, sliderVol.value));
+					sliderPan.addEventListener('input', (event) => tr.pan = sliderPan.value);
+					sliderPan.addEventListener('change', (event) => saveTrackValue('lrPan', tr.name, sliderPan.value));
 					if (mixer.use3D)
 					{
 						const fbPan = getSavedTrackValue('fbPan', tr.name, 0);
@@ -1451,10 +1393,13 @@ function CheckForAutoScroll(instant, lowBarData)
 						sliderPanFB.className = 'sliderPanFB';
 						sliderPanFB.style.width = '50px';
 						row.insertCell().appendChild(sliderPanFB);
+						sliderPanFB.addEventListener('change', (event) =>
+						{
+							saveTrackValue('fbPan', tr.name, sliderPanFB.value);
+						});
 						sliderPanFB.addEventListener('input', (event) =>
 						{
 							tr.panFB = sliderPanFB.value;
-							saveTrackValue('fbPan', tr.name, sliderPanFB.value);
 						});
 						tr.panFB = fbPan;
 					}
@@ -1535,13 +1480,25 @@ function CheckForAutoScroll(instant, lowBarData)
 		{
 			SetBass(this.value);
 		};
+		rangeBass.onchange = function ()
+		{
+			saveValue('Bass', this.value);
+		};
 		rangeTreble.oninput = function ()
 		{
 			SetTreble(this.value);
+		}
+		rangeTreble.onchange = function ()
+		{
+			saveValue('Treble', this.value);
 		};
 		rangeVol.oninput = function ()
 		{
 			SetVolume(this.value);
+		};
+		rangeVol.onchange = function ()
+		{
+			saveValue('Volume', this.value);
 		};
 		function SetVolume(value)
 		{
@@ -1551,7 +1508,6 @@ function CheckForAutoScroll(instant, lowBarData)
 			mixer.volume = value / 100;
 			rangeVol.value = value;
 			elePlaybackVolume.innerText = value + '%';
-			saveValue('Volume', value);
 		}
 		function SetBass(value)
 		{
@@ -1561,7 +1517,6 @@ function CheckForAutoScroll(instant, lowBarData)
 			mixer.bass = value / 10;
 			rangeBass.value = value;
 			eleBass.innerText = value + '%';
-			saveValue('Bass', value);
 		}
 		function SetTreble(value)
 		{
@@ -1571,7 +1526,6 @@ function CheckForAutoScroll(instant, lowBarData)
 			mixer.treble = value / 5;
 			rangeTreble.value = value;
 			eleTreble.innerText = value + '%';
-			saveValue('Treble', value);
 		}
 		async function SortParts(order)
 		{
@@ -1603,11 +1557,17 @@ function CheckForAutoScroll(instant, lowBarData)
 		SetBass(getValue('Bass', 50));
 		SetTreble(getValue('Treble', 50));
 		SortParts(getValue('SortParts', 'SALTBM'));
+		const parts = document.getElementsByName('SHR');
+		parts.forEach(element => element.checked = getValue(element.id, true));
+		setPartVisibility();
+		const showhides = document.getElementsByName('SHB');
+		showhides.forEach(element => element.checked = getValue(element.id, true));
+		setShowHides();
 		UnhideBar();
 		document.body.addEventListener('dblclick', UnhideBar);
 		mixer.addEventListener('pause', OnPause);
 		mixer.addEventListener('play', OnResumeOrPlay);
-		mixer.addEventListener('ended', OnPlayEnd);
+		mixer.addEventListener('ended', DoStop);
 		window.addEventListener('resize',  EnsureCorrectSizes);
 		UpdateStatus();
 	}
@@ -1748,7 +1708,8 @@ function CheckForAutoScroll(instant, lowBarData)
 	{
 		if (playHow === event.srcElement.id) return;
 		playHow = event.srcElement.id;
-		if (playHow === 'play') UnlockPlayOnRowClick();
+		mixer.syncForClick = playHow === 'sync';
+		if (playHow === 'play'||playHow=='sync') UnlockPlayOnRowClick();
 		else LockPlayOnRowClick();
 	}
 	function DoSort(event)
@@ -1756,8 +1717,9 @@ function CheckForAutoScroll(instant, lowBarData)
 		let how = event.srcElement.id;
 		SortParts(how);
 	}
-	async function ToggleJumps(event)
+	async function JumpsOrDirectionsClicked(event)
 	{
+		saveValue(event.target.id, event.target.checked);
 		const tag = (event.target.id == 'dirHide') ? 'w' : 'z';
 		await SetJumpVisible(tag, event.target.checked);
 	}
@@ -1780,18 +1742,82 @@ function CheckForAutoScroll(instant, lowBarData)
 			DecMouse();
 		}
 	}
-	function ShowHideRows(event)
+	async function signatureColumnClicked(event)
 	{
-		const eles=document.getElementsByName('SHR')
+		let val = event.target.checked;
+		saveValue(event.target.id, val);
+		await setSignature(val);
+	}
+	async function setSignature(val)
+	{
+		await IncMouse();
+		const hide = !val;
+		try
+		{
+			let temp = mainTable.rows;
+			for (let i = 0; i < temp.length; i++)
+			{
+				if (temp[i].hasAttribute('t'))
+				{
+					temp[i].cells[0].classList.toggle('hide', hide);
+				}
+			}
+			setTagNameVisibility('v1', hide);
+			CheckFontSizes();
+		}
+		finally
+		{
+			DecMouse();
+		}
+	}
+	async function partColumnClicked(event)
+	{
+		let val = event.target.checked;
+		saveValue(event.target.id, val);
+		await setPartColumn(val);
+	}
+	async function setPartColumn(val)
+	{
+		try
+		{
+			await IncMouse();
+			let table = mainTable.getElementsByTagName('table');
+			for (let i = 0; i < table.length; i++)
+			{
+				if (table[i].hasAttribute('fx'))
+				{
+					//let rows = table[i].getElementsByTagName('tr');
+					let rows = table[i].rows;
+					for (let r = 0; r < rows.length; r++)
+					if (r == 0 || rows[r].hasAttribute('tot')) rows[r].cells[0].classList.toggle('hide', !val);
+					else if (rows[r].hasAttribute('dr')) rows[r].cells[0].classList.toggle('hide', !val);
+				}
+			}
+			CheckFontSizes();
+		}
+		finally
+		{
+			DecMouse();
+		}
+	}
+	function showHideRows(event)
+	{
+		saveValue(event.target.id, event.target.checked);
 		if (event.ctrlKey)
 		{
+			const eles = document.getElementsByName('SHR')
 			for (const element of eles)
 			{
 				if (element == event.srcElement) element.checked = true;
 				else element.checked = false;
 			}
 		}
+		setPartVisibility();
+	}
+	function setPartVisibility()
+	{
 		let theRows = '';
+		const eles = document.getElementsByName('SHR')
 		for (const element of eles)
 		{
 			theRows += element.id;
@@ -1801,7 +1827,14 @@ function CheckForAutoScroll(instant, lowBarData)
 		if (theRows.indexOf('AV') >= 0 || theRows.indexOf('SV') >= 0) theRows += 'LV'; else theRows += 'LH';
 		if (theRows.indexOf('BV') >= 0 || theRows.indexOf('TV') >= 0) theRows += 'MV'; else theRows += 'MH';
 		if (theRows.indexOf('LV') >= 0 || theRows.indexOf('MV') >= 0) theRows += 'EV'; else theRows += 'EH';
-		ShowParts(theRows);
+		showParts(theRows);
+	}
+	function setShowHides()
+	{
+		setSignature(document.getElementById('barHide').checked);
+		setPartColumn(document.getElementById('partHide').checked);
+		SetJumpVisible('z', document.getElementById('jumpHide').checked)
+		SetJumpVisible('w', document.getElementById('dirHide').checked)
 	}
 	function CreateCheckbox(id, groupName, text, title, parentElement, clickEvent)
 	{
@@ -2118,24 +2151,24 @@ class AudioControllerXXXXX extends EventTarget
 	constructor()
 	{
 		super();
-		this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+		this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
 		this.audioElement = new Audio();
 		this.audioElement.crossOrigin = "anonymous";
-		this.sourceNode = this.audioCtx.createMediaElementSource(this.audioElement);
-		this.gainNode = this.audioCtx.createGain();
+		this.sourceNode = this.audioContext.createMediaElementSource(this.audioElement);
+		this.gainNode = this.audioContext.createGain();
 		this.gainNode.gain.value = 2.5;
-		this.bassFilter = this.audioCtx.createBiquadFilter();
+		this.bassFilter = this.audioContext.createBiquadFilter();
 		this.bassFilter.type = "lowshelf";
 		this.bassFilter.frequency.value = 200;
 		this.bassFilter.gain.value = 0;
-		this.trebleFilter = this.audioCtx.createBiquadFilter();
+		this.trebleFilter = this.audioContext.createBiquadFilter();
 		this.trebleFilter.type = "highshelf";
 		this.trebleFilter.frequency.value = 3000;
 		this.trebleFilter.gain.value = 0;
 		this.sourceNode.connect(this.gainNode);
 		this.gainNode.connect(this.bassFilter);
 		this.bassFilter.connect(this.trebleFilter);
-		this.trebleFilter.connect(this.audioCtx.destination);
+		this.trebleFilter.connect(this.audioContext.destination);
 		this.startTime = 0;
 		this.elapsedOffset = 0;
 		this.isPlaying = false;
@@ -2163,8 +2196,8 @@ class AudioControllerXXXXX extends EventTarget
 	play()
 	{
 		if (this.isPlaying) return;
-		if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
-		this.startTime = this.audioCtx.currentTime;
+		if (this.audioContext.state === 'suspended') this.audioContext.resume();
+		this.startTime = this.audioContext.currentTime;
 		this.audioElement.play();
 		this.isPlaying = true;
 	}
@@ -2172,7 +2205,7 @@ class AudioControllerXXXXX extends EventTarget
 	{
 		if (!this.isPlaying) return;
 		this.audioElement.pause();
-		this.elapsedOffset += (this.audioCtx.currentTime - this.startTime) * this.playbackRate;
+		this.elapsedOffset += (this.audioContext.currentTime - this.startTime) * this.playbackRate;
 		this.isPlaying = false;
 	}
 	stop()
@@ -2192,7 +2225,7 @@ class AudioControllerXXXXX extends EventTarget
 	set volume(value)
 	{
 		const normalizedValue = this.#vScale * Math.max(0, Math.min(1, value));
-		if (this.gainNode && this.audioCtx)
+		if (this.gainNode && this.audioContext)
 		{
 			this.gainNode.gain.value = normalizedValue;
 		}
@@ -2203,9 +2236,9 @@ class AudioControllerXXXXX extends EventTarget
 	}
 	set bass(value)
 	{
-		if (this.bassFilter && this.audioCtx)
+		if (this.bassFilter && this.audioContext)
 		{
-			this.bassFilter.gain.setValueAtTime(value, this.audioCtx.currentTime);
+			this.bassFilter.gain.setValueAtTime(value, this.audioContext.currentTime);
 		}
 	}
 	get treble()
@@ -2214,9 +2247,9 @@ class AudioControllerXXXXX extends EventTarget
 	}
 	set treble(value)
 	{
-		if (this.trebleFilter && this.audioCtx)
+		if (this.trebleFilter && this.audioContext)
 		{
-			this.trebleFilter.gain.setValueAtTime(value, this.audioCtx.currentTime);
+			this.trebleFilter.gain.setValueAtTime(value, this.audioContext.currentTime);
 		}
 	}
 	get echoTime()
@@ -2227,20 +2260,20 @@ class AudioControllerXXXXX extends EventTarget
 	{
 		if (value < 0) value = 0;
 		else if (value > 1) value = 1;
-		if (this.delayNode && this.audioCtx)
+		if (this.delayNode && this.audioContext)
 		{
 			console.log("echo " + value);
-			this.delayNode.delayTime.setValueAtTime(value, this.audioCtx.currentTime);
+			this.delayNode.delayTime.setValueAtTime(value, this.audioContext.currentTime);
 			console.log("echoTime " + this.echoTime);
 		}
 	}
 	get baseLatency()
 	{
-		return this.audioCtx.baseLatency || 0;
+		return this.audioContext.baseLatency || 0;
 	}
 	get outputLatency()
 	{
-		return this.audioCtx.outputLatency || 0;
+		return this.audioContext.outputLatency || 0;
 	}
 	get currentPosition()
 	{
@@ -2248,10 +2281,10 @@ class AudioControllerXXXXX extends EventTarget
 		{
 			return this.elapsedOffset;
 		}
-		const currentRunTime = (this.audioCtx.currentTime - this.startTime) * this.playbackRate;
+		const currentRunTime = (this.audioContext.currentTime - this.startTime) * this.playbackRate;
 		const rawSongTime = this.elapsedOffset + currentRunTime;
-		const outputLag = this.audioCtx.outputLatency || 0;
-		const baseLag = this.audioCtx.baseLatency || 0;
+		const outputLag = this.audioContext.outputLatency || 0;
+		const baseLag = this.audioContext.baseLatency || 0;
 		const totalHardwareLag = outputLag + baseLag;
 		return Math.max(0, rawSongTime - totalHardwareLag);
 	}
@@ -2261,7 +2294,7 @@ class AudioControllerXXXXX extends EventTarget
 		this.audioElement.currentTime = this.elapsedOffset;
 		if (this.isPlaying)
 		{
-			this.startTime = this.audioCtx.currentTime;
+			this.startTime = this.audioContext.currentTime;
 		}
 	}
 	get playbackRate()
@@ -2273,8 +2306,8 @@ class AudioControllerXXXXX extends EventTarget
 		const targetSpeed = Math.max(0.1, speed);
 		if (this.isPlaying)
 		{
-			this.elapsedOffset += (this.audioCtx.currentTime - this.startTime) * this.playbackRate;
-			this.startTime = this.audioCtx.currentTime;
+			this.elapsedOffset += (this.audioContext.currentTime - this.startTime) * this.playbackRate;
+			this.startTime = this.audioContext.currentTime;
 		}
 		this.audioElement.playbackRate = targetSpeed;
 	}
@@ -2315,23 +2348,13 @@ class AudioControllerXXXXX extends EventTarget
 		{
 			this.sourceNode.disconnect();
 		}
-		if (this.audioCtx && this.audioCtx.state !== 'closed')
+		if (this.audioContext && this.audioContext.state !== 'closed')
 		{
-			await this.audioCtx.close();
+			await this.audioContext.close();
 		}
 		this.audioElement = null;
 		this.sourceNode = null;
-		this.audioCtx = null;
+		this.audioContext = null;
 	}
 }
 setTimeout(DoItAll, 0);
-if (performance.memory)
-{
-	console.log("JavaScript Heap Limits & Usage:");
-	console.log(`Total Heap Size: ${(performance.memory.totalJSHeapSize / 1024 / 1024).toFixed(2)} MB`);
-	console.log(`Used Heap Size: ${(performance.memory.usedJSHeapSize / 1024 / 1024).toFixed(2)} MB`);
-	console.log(`Heap Size Limit: ${(performance.memory.jsHeapSizeLimit / 1024 / 1024).toFixed(2)} MB`);
-} else
-{
-	console.log("performance.memory is not supported in this browser.");
-}
