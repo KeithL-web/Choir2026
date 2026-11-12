@@ -29,8 +29,11 @@ const vaSkip = -10.46875 - va0;
 function saveValue(name, value)
 {
 	if (!blnReady) return;
-	console.log("save " + name + "=" + value);
 	localStorage.setItem(name, JSON.stringify(value));
+}
+function saveToggle(target)
+{
+	saveValue(target.id, target.checked);
 }
 function buildName(...parts)
 {
@@ -43,9 +46,16 @@ function query(name)
 }
 function getValue(name, defaultValue)
 {
-	const value = localStorage.getItem(name);
-	if (value) return JSON.parse(value);
-	else return defaultValue;
+	try
+	{
+		const value = localStorage.getItem(name);
+		if (value) return JSON.parse(value);
+		else return defaultValue;
+	}
+	catch
+	{
+		return defaultValue;
+	}
 }
 function removeValue(name)
 {
@@ -138,6 +148,7 @@ async function SetFontEnables()
 		FixButton(btnNorm, fontSize > 95 && fontSize < 105);
 		document.getElementById("lyrics").style.fontSize = fontSize + '%';
 		btnNorm.innerHTML = 5 * Math.round(fontSize / 5) + "<sup>%</sup>";
+		ToPixels(fontSize);
 		CheckFontSizes();
 	}
 	finally
@@ -917,9 +928,13 @@ function CheckForAutoScroll(instant, lowBarData)
 	}
 	function SetMediaPosition(ev)
 	{
-		CancelScroll();
 		let value = GetPos(rangePos, ev);
 		if (value == null) return;
+		GotoPos(value);
+	}
+	function GotoPos(value)
+	{
+		CancelScroll();
 		if (dataType == 1)
 		{
 			if (value < theBegining) value = theBegining;
@@ -928,7 +943,8 @@ function CheckForAutoScroll(instant, lowBarData)
 		else
 		{
 			let index = findIndexForBar(value);
-			if (index >= 0) mixer.currentPosition = positionData[index].Time;
+			if (index < 0) index = 0;
+			mixer.currentPosition = positionData[index].Time;
 			cellBeatNo.innerText = '1';
 			cellBarNo.innerText = positionData[index].Bar;
 			if (mixer.paused)
@@ -1303,21 +1319,6 @@ function CheckForAutoScroll(instant, lowBarData)
 		CreateRadio('sync', 'RC', 'play synced', 'Same as "play music", but  audio lag will be accounted for. This is required if you need to sync with external source, especially on a hand-held device. You might want to turn sound here to zero', innerTable.insertRow().insertCell(), DoWhatOnClick);
 		CreateRadio('highlight', 'RC', 'highlight row only', 'When selected, the music will not play but row will be highlighted', innerTable.insertRow().insertCell(), DoWhatOnClick);
 		playHow = 'play';
-		barCell = barRow.insertCell();
-		barCell.style.padding = padding;
-		barCell.style.borderRight = '1px solid white';
-		innerTable = CreateTable(barCell);
-		btnInc = CreateButton('button', "A+", 'Increase Font Size', innerTable.insertRow().insertCell(), DoInc);
-		btnNorm = CreateButton('button', "100<sup>%</sup>", 'Reset Font Size', innerTable.insertRow().insertCell(), DoNorm);
-		btnNorm.style.backgroundColor = "gray";
-		btnDec = CreateButton('button', "A-", 'Decrease Font Size', innerTable.insertRow().insertCell(), DoDec);
-		barCell = barRow.insertCell();
-		barCell.style.padding = padding;
-		barCell.style.borderRight = '1px solid white';
-		innerTable = CreateTable(barCell);
-		CreateButton('button', 'Home', "Go to Main Index", innerTable.insertRow().insertCell(), () => NavBy(0));
-		CreateButton('button', 'Next', "Next Song", innerTable.insertRow().insertCell(), () => NavBy(1));
-		CreateButton('button', 'Prev', "Previous Song", innerTable.insertRow().insertCell(), () => NavBy(-1));
 		if (dataType != 1)
 		{
 			barCell = barRow.insertCell();
@@ -1350,14 +1351,16 @@ function CheckForAutoScroll(instant, lowBarData)
 			innerCell = innerTable.insertRow().insertCell();
 			innerCell.style.textAlign = 'center';
 			innerCell.innerText = 'Show/Hide';
-			CreateCheckbox('barHide', 'SHB', 'Bar/Sig', 'Check to view Signature and Bar column. Uncheck for more space', innerTable.insertRow().insertCell(), signatureColumnClicked);
-			CreateCheckbox('partHide', 'SHB', 'Part', 'Check to View Parts (S,A,T,B etc.) column. Uncheck for more space', innerTable.insertRow().insertCell(), partColumnClicked);
-			CreateCheckbox('jumpHide', 'SHB', 'Steps', 'Check to show number of steps difference. Uncheck to hide', innerTable.insertRow().insertCell(), JumpsOrDirectionsClicked);
-			CreateCheckbox('dirHide', 'SHB', 'Directions', 'Check to show directions. Uncheck to hide', innerTable.insertRow().insertCell(), JumpsOrDirectionsClicked);
+			CreateCheckbox('barShow', 'SHB', 'Bar/Sig', 'Check to view Signature and Bar column. Uncheck for more space', innerTable.insertRow().insertCell(), signatureColumnClicked);
+			CreateCheckbox('partShow', 'SHB', 'Part', 'Check to View Parts (S,A,T,B etc.) column. Uncheck for more space', innerTable.insertRow().insertCell(), partColumnClicked);
+			CreateCheckbox('stepsShow', 'SHB', 'Steps', 'Check to show number of steps between consecutive notes. Uncheck to hide', innerTable.insertRow().insertCell(), stepsVisibilityClicked);
+			CreateCheckbox('jumpOmitZero', 'SHB', 'Omit Zero', 'Check to avoid showing instances of zero steps', innerTable.insertRow().insertCell(), stepsOmitZeroClicked, true);
+			CreateCheckbox('dirShow', 'SHB', 'Directions', 'Check to show directions. Uncheck to hide', innerTable.insertRow().insertCell(), directionsVisibilityClicked);
 			if (mixer.count > 1)
 			{
 				barCell = barRow.insertCell();
 				barCell.style.padding = padding;
+				barCell.style.borderRight = '1px solid white';
 				innerTable = CreateTable(barCell);
 				innerRow = innerTable.insertRow();
 				let m = ['Part', 'Volume', 'Pan'];
@@ -1407,6 +1410,22 @@ function CheckForAutoScroll(instant, lowBarData)
 					tr.pan = lrPan;
 				}
 			}
+			barCell = barRow.insertCell();
+			barCell.style.padding = padding;
+			barCell.style.borderRight = '1px solid white';
+			innerTable = CreateTable(barCell);
+			btnInc = CreateButton('button', "A+", 'Increase Font Size', innerTable.insertRow().insertCell(), DoInc);
+			btnNorm = CreateButton('button', "100<sup>%</sup>", 'Reset Font Size', innerTable.insertRow().insertCell(), DoNorm);
+			btnNorm.style.backgroundColor = "gray";
+			btnDec = CreateButton('button', "A-", 'Decrease Font Size', innerTable.insertRow().insertCell(), DoDec);
+			barCell = barRow.insertCell();
+			barCell.style.padding = padding;
+			barCell.style.borderRight = '1px solid white';
+			innerTable = CreateTable(barCell);
+			CreateButton('button', 'Home', "Go to Main Index", innerTable.insertRow().insertCell(), () => NavBy(0));
+			CreateButton('button', 'Next', "Next Song", innerTable.insertRow().insertCell(), () => NavBy(1));
+			CreateButton('button', 'Prev', "Previous Song", innerTable.insertRow().insertCell(), () => NavBy(-1));
+			CreateButton('button', 'Top', "Top of Page", innerTable.insertRow().insertCell(), () => GotoPos(0));
 		}
 		let rangeBass = CreateRange(0, 0, 100);
 		let rangeTreble = CreateRange(0, 0, 100);
@@ -1561,800 +1580,844 @@ function CheckForAutoScroll(instant, lowBarData)
 		parts.forEach(element => element.checked = getValue(element.id, true));
 		setPartVisibility();
 		const showhides = document.getElementsByName('SHB');
-		showhides.forEach(element => element.checked = getValue(element.id, true));
-		setShowHides();
-		UnhideBar();
-		document.body.addEventListener('dblclick', UnhideBar);
-		mixer.addEventListener('pause', OnPause);
-		mixer.addEventListener('play', OnResumeOrPlay);
-		mixer.addEventListener('ended', DoStop);
-		window.addEventListener('resize',  EnsureCorrectSizes);
-		UpdateStatus();
-	}
-	function NavBy(inc)
-	{
-		let href = '../../index.html';
-		if (inc != 0)
-		{
-			const index = +query('index') + inc;
-			href += '?index=' + index;
+		showhides.forEach(element =>
+		{ element.checked = getValue(element.id, true); console.log(element.id + " " + element.checked); })
+			setShowHides();
+			UnhideBar();
+			document.body.addEventListener('dblclick', UnhideBar);
+			mixer.addEventListener('pause', OnPause);
+			mixer.addEventListener('play', OnResumeOrPlay);
+			mixer.addEventListener('ended', DoStop);
+			window.addEventListener('resize',  EnsureCorrectSizes);
+			UpdateStatus();
 		}
-		console.log("Here I am in NavBy(" + inc +")");
-		window.location.href = href;
-	}
-	function SetVolume(value)
-	{
-		value = Math.floor(value);
-		if (value < 0) value = 0;
-		else if (value > 100) value = 100;
-		mixer.volume = value / 100;
-		rangeVol.value = value;
-		elePlaybackVolume.innerText = value + '%';
-	}
-	function CreateButton(className, text, tooltip, parent, clickEvent)
-	{
-		let btn = document.createElement('button');
-		btn.className = className;
-		btn.innerHTML = text;
-		btn.title = tooltip;
-		btn.data = btn.style.color;
-		btn.addEventListener('mouseover', ColorButton);
-		btn.addEventListener('mouseout', UncolorButton);
-		btn.addEventListener('mousedown', ShiftButton);
-		btn.addEventListener('mouseup', ResetTransform)
-		btn.addEventListener('touchstart', ShiftButton);
-		btn.addEventListener('touchend', ResetTransform);
-		btn.addEventListener('click', clickEvent);
-		parent.appendChild(btn);
-		return btn;
-	}
-	function ShiftButton(ev)
-	{
-		ev.target.style.transform = 'translate(1px, 1px)';
-	}
-	function ColorButton(ev)
-	{
-		ev.target.data = ev.target.style.color;
-		ev.target.style.color = '#FF8080';
-	}
-	function UncolorButton(ev)
-	{
-		ev.target.style.color = ev.target.data;
-		ResetTransform(ev);
-	}
-	function ResetTransform(ev)
-	{
-		ev.target.style.transform = 'translate(0px, 0px)';
-		ev.target.style.color = ev.target.data;
-	}
-	function CreateRange(min, value, max, step = 1)
-	{
-		let range = document.createElement('input');
-		range.type = 'range';
-		range.min = min;
-		range.step = step;
-		range.value = value;
-		range.max = max;
-		return range;
-	}
-	function CreateTable(parent)
-	{
-		let table = document.createElement('table');
-		let style = table.style;
-		style.border = "0px none black;";
-		style.borderCollapse = 'collapse';
-		style.padding = '1px';
-		style.color = 'white';
-		style.fontSize = '10pt';
-		parent.appendChild(table);
-		return table;
-	}
-	function CreateSpanNew(textLeft, range, textRight, parentCell, minLength)
-	{
-		let div = document.createElement('div');
-		div.style.flex = '1';
-		parentCell.appendChild(div);
-		let table = CreateTable(div);
-		let parentRow = table.insertRow();
-		let cell = parentRow.insertCell();
-		cell.style.textAlign = 'right';
-		cell.innerText = textLeft;
-		cell.style.verticalAlign = 'middle';
-		cell = parentRow.insertCell();
-		cell.style.verticalAlign = 'middle';
-		cell.appendChild(range);
-		cell = parentRow.insertCell();
-		cell.style.textAlign = 'right';
-		cell.style.verticalAlign = 'middle';
-		cell.style.minWidth = minLength + "ch";
-		cell.innerText = textRight;
-		return cell;
-	}
-	function CreateSpan(textLeft, range, textRight, parentRow, minLength)
-	{
-		let cell = parentRow.insertCell();
-		cell.style.textAlign = 'right';
-		cell.innerText = textLeft;
-		cell.style.verticalAlign = 'middle';
-		cell = parentRow.insertCell();
-		cell.style.verticalAlign = 'middle';
-		cell.appendChild(range);
-		if (textRight.length == 0) return null;
-		cell = parentRow.insertCell();
-		cell.style.textAlign = 'right';
-		cell.style.verticalAlign = 'middle';
-		cell.style.minWidth = minLength + "ch";
-		cell.innerText = textRight;
-		return cell;
-	}
-	function CreateRadio(id, name, text, title, parentElement, clickEventCallback)
-	{
-		let radio = document.createElement('input');
-		radio.type = 'radio';
-		radio.id = id;
-		radio.name = name;
-		radio.checked = false;
-		let label = document.createElement('label');
-		label.htmlFor = id;
-		label.style.color = 'white';
-		label.textContent = text;
-		label.title = title;
-		parentElement.appendChild(radio);
-		parentElement.appendChild(label);
-		radio.addEventListener('click', clickEventCallback);
-		return radio;
-	}
-	function DoWhatOnClick(event)
-	{
-		if (playHow === event.srcElement.id) return;
-		playHow = event.srcElement.id;
-		mixer.syncForClick = playHow === 'sync';
-		if (playHow === 'play'||playHow=='sync') UnlockPlayOnRowClick();
-		else LockPlayOnRowClick();
-	}
-	function DoSort(event)
-	{
-		let how = event.srcElement.id;
-		SortParts(how);
-	}
-	async function JumpsOrDirectionsClicked(event)
-	{
-		saveValue(event.target.id, event.target.checked);
-		const tag = (event.target.id == 'dirHide') ? 'w' : 'z';
-		await SetJumpVisible(tag, event.target.checked);
-	}
-	async function SetJumpVisible(tag,show)
-	{
-		try
+		function NavBy(inc)
 		{
-			await IncMouse();
-			const elements = document.querySelectorAll(tag);
-			const disp = show ? 'inline-flex' : 'none';
-			elements.forEach(element =>
+			let href = '../../index.html';
+			if (inc != 0)
 			{
-				if (disp == element.style.display) return;
-				element.style.display = disp;
-			});
-			CheckFontSizes();
+				const index = +query('index') + inc;
+				href += '?index=' + index;
+			}
+			console.log("Here I am in NavBy(" + inc +")");
+			window.location.href = href;
 		}
-		finally
+		function SetVolume(value)
 		{
-			DecMouse();
+			value = Math.floor(value);
+			if (value < 0) value = 0;
+			else if (value > 100) value = 100;
+			mixer.volume = value / 100;
+			rangeVol.value = value;
+			elePlaybackVolume.innerText = value + '%';
 		}
-	}
-	async function signatureColumnClicked(event)
-	{
-		let val = event.target.checked;
-		saveValue(event.target.id, val);
-		await setSignature(val);
-	}
-	async function setSignature(val)
-	{
-		await IncMouse();
-		const hide = !val;
-		try
+		function CreateButton(className, text, tooltip, parent, clickEvent)
 		{
-			let temp = mainTable.rows;
-			for (let i = 0; i < temp.length; i++)
+			let btn = document.createElement('button');
+			btn.className = className;
+			btn.innerHTML = text;
+			btn.title = tooltip;
+			btn.data = btn.style.color;
+			btn.addEventListener('mouseover', ColorButton);
+			btn.addEventListener('mouseout', UncolorButton);
+			btn.addEventListener('mousedown', ShiftButton);
+			btn.addEventListener('mouseup', ResetTransform)
+			btn.addEventListener('touchstart', ShiftButton);
+			btn.addEventListener('touchend', ResetTransform);
+			btn.addEventListener('click', clickEvent);
+			parent.appendChild(btn);
+			return btn;
+		}
+		function ShiftButton(ev)
+		{
+			ev.target.style.transform = 'translate(1px, 1px)';
+		}
+		function ColorButton(ev)
+		{
+			ev.target.data = ev.target.style.color;
+			ev.target.style.color = '#FF8080';
+		}
+		function UncolorButton(ev)
+		{
+			ev.target.style.color = ev.target.data;
+			ResetTransform(ev);
+		}
+		function ResetTransform(ev)
+		{
+			ev.target.style.transform = 'translate(0px, 0px)';
+			ev.target.style.color = ev.target.data;
+		}
+		function CreateRange(min, value, max, step = 1)
+		{
+			let range = document.createElement('input');
+			range.type = 'range';
+			range.min = min;
+			range.step = step;
+			range.value = value;
+			range.max = max;
+			return range;
+		}
+		function CreateTable(parent)
+		{
+			let table = document.createElement('table');
+			let style = table.style;
+			style.border = "0px none black;";
+			style.borderCollapse = 'collapse';
+			style.padding = '1px';
+			style.color = 'white';
+			style.fontSize = '10pt';
+			parent.appendChild(table);
+			return table;
+		}
+		function CreateSpanNew(textLeft, range, textRight, parentCell, minLength)
+		{
+			let div = document.createElement('div');
+			div.style.flex = '1';
+			parentCell.appendChild(div);
+			let table = CreateTable(div);
+			let parentRow = table.insertRow();
+			let cell = parentRow.insertCell();
+			cell.style.textAlign = 'right';
+			cell.innerText = textLeft;
+			cell.style.verticalAlign = 'middle';
+			cell = parentRow.insertCell();
+			cell.style.verticalAlign = 'middle';
+			cell.appendChild(range);
+			cell = parentRow.insertCell();
+			cell.style.textAlign = 'right';
+			cell.style.verticalAlign = 'middle';
+			cell.style.minWidth = minLength + "ch";
+			cell.innerText = textRight;
+			return cell;
+		}
+		function CreateSpan(textLeft, range, textRight, parentRow, minLength)
+		{
+			let cell = parentRow.insertCell();
+			cell.style.textAlign = 'right';
+			cell.innerText = textLeft;
+			cell.style.verticalAlign = 'middle';
+			cell = parentRow.insertCell();
+			cell.style.verticalAlign = 'middle';
+			cell.appendChild(range);
+			if (textRight.length == 0) return null;
+			cell = parentRow.insertCell();
+			cell.style.textAlign = 'right';
+			cell.style.verticalAlign = 'middle';
+			cell.style.minWidth = minLength + "ch";
+			cell.innerText = textRight;
+			return cell;
+		}
+		function CreateRadio(id, name, text, title, parentElement, clickEventCallback)
+		{
+			let radio = document.createElement('input');
+			radio.type = 'radio';
+			radio.id = id;
+			radio.name = name;
+			radio.checked = false;
+			let label = document.createElement('label');
+			label.htmlFor = id;
+			label.style.color = 'white';
+			label.textContent = text;
+			label.title = title;
+			parentElement.appendChild(radio);
+			parentElement.appendChild(label);
+			radio.addEventListener('click', clickEventCallback);
+			return radio;
+		}
+		function DoWhatOnClick(event)
+		{
+			if (playHow === event.srcElement.id) return;
+			playHow = event.srcElement.id;
+			mixer.syncForClick = playHow === 'sync';
+			if (playHow === 'play'||playHow=='sync') UnlockPlayOnRowClick();
+			else LockPlayOnRowClick();
+		}
+		function DoSort(event)
+		{
+			let how = event.srcElement.id;
+			SortParts(how);
+		}
+		const stepTag = 'z', dirTag = 'w';
+		async function stepsOmitZeroClicked(event)
+		{
+			saveToggle(event.target);
+			await StepsOmitZero(event.target.checked);
+		}
+		function StepsOmitZero(val)
+		{
+			if (document.getElementById('stepsShow').checked)
 			{
-				if (temp[i].hasAttribute('t'))
+				const disp = val ? 'none' : 'inline-flex';
+				const elements = document.querySelectorAll(stepTag);
+				elements.forEach(element =>
 				{
-					temp[i].cells[0].classList.toggle('hide', hide);
-				}
-			}
-			setTagNameVisibility('v1', hide);
-			CheckFontSizes();
-		}
-		finally
-		{
-			DecMouse();
-		}
-	}
-	async function partColumnClicked(event)
-	{
-		let val = event.target.checked;
-		saveValue(event.target.id, val);
-		await setPartColumn(val);
-	}
-	async function setPartColumn(val)
-	{
-		try
-		{
-			await IncMouse();
-			let table = mainTable.getElementsByTagName('table');
-			for (let i = 0; i < table.length; i++)
-			{
-				if (table[i].hasAttribute('fx'))
-				{
-					//let rows = table[i].getElementsByTagName('tr');
-					let rows = table[i].rows;
-					for (let r = 0; r < rows.length; r++)
-					if (r == 0 || rows[r].hasAttribute('tot')) rows[r].cells[0].classList.toggle('hide', !val);
-					else if (rows[r].hasAttribute('dr')) rows[r].cells[0].classList.toggle('hide', !val);
-				}
-			}
-			CheckFontSizes();
-		}
-		finally
-		{
-			DecMouse();
-		}
-	}
-	function showHideRows(event)
-	{
-		saveValue(event.target.id, event.target.checked);
-		if (event.ctrlKey)
-		{
-			const eles = document.getElementsByName('SHR')
-			for (const element of eles)
-			{
-				if (element == event.srcElement) element.checked = true;
-				else element.checked = false;
-			}
-		}
-		setPartVisibility();
-	}
-	function setPartVisibility()
-	{
-		let theRows = '';
-		const eles = document.getElementsByName('SHR')
-		for (const element of eles)
-		{
-			theRows += element.id;
-			if (element.checked) theRows += 'V';
-			else theRows += 'H';
-		}
-		if (theRows.indexOf('AV') >= 0 || theRows.indexOf('SV') >= 0) theRows += 'LV'; else theRows += 'LH';
-		if (theRows.indexOf('BV') >= 0 || theRows.indexOf('TV') >= 0) theRows += 'MV'; else theRows += 'MH';
-		if (theRows.indexOf('LV') >= 0 || theRows.indexOf('MV') >= 0) theRows += 'EV'; else theRows += 'EH';
-		showParts(theRows);
-	}
-	function setShowHides()
-	{
-		setSignature(document.getElementById('barHide').checked);
-		setPartColumn(document.getElementById('partHide').checked);
-		SetJumpVisible('z', document.getElementById('jumpHide').checked)
-		SetJumpVisible('w', document.getElementById('dirHide').checked)
-	}
-	function CreateCheckbox(id, groupName, text, title, parentElement, clickEvent)
-	{
-		let checkBox = document.createElement('input');
-		checkBox.type = 'checkbox';
-		checkBox.id = id;
-		checkBox.checked = false;
-		checkBox.name = groupName;
-		let label = document.createElement('label');
-		label.htmlFor = id;
-		label.style.color = 'white';
-		label.style.fontSize = '10pt';
-		label.innerHTML = text;
-		label.title = title;
-		parentElement.appendChild(checkBox);
-		parentElement.appendChild(label);
-		checkBox.addEventListener('click', clickEvent);
-		return checkBox;
-	}
-	let resizer = document.getElementById('resizer');
-	const lyricPanel = document.getElementById('lyricPanel');
-	const scorePanel = resizer===null?null:document.getElementById('scorePanel');
-	let isInternallyResizing = false;
-	let playHow;
-	function MoreSetup()
-	{
-		function CancelInternalResize()
-		{
-			if (isInternallyResizing)
-			{
-				isInternallyResizing = false;
-				document.body.style.cursor = 'default';
-				scoreSrc.style.display = "block";
-				resizer.style.backgroundColor = 'dodgerblue';
-				EnsureCorrectSizes();
+					if (element.innerText == '0') element.style.display = disp;
+				});
 				CheckFontSizes();
 			}
 		}
-		if (resizer != null)
+		async function directionsVisibilityClicked(event)
 		{
-			resizer.onmousedown = function (ev)
+			saveToggle(event.target);
+			await setDirectionsVisibility(event.target.checked);
+		}
+		async function setDirectionsVisibility(val)
+		{
+			try
 			{
-				if (ev.buttons != 1) return;
-				ResizerStart(ev);
-			};
-			resizer.ontouchstart = function (ev)
-			{
-				ResizerStart(ev);
-			};
-			function ResizerStart(ev)
-			{
-				isInternallyResizing = false;
-				resizer.style.backgroundColor = 'red';
-				scoreSrc.style.display = "none";
-				document.body.style.cursor = blnLeftToRight ? 'ew-resize' : 'ns-resize';
-				isInternallyResizing = true;
+				await IncMouse();
+				const elements = document.querySelectorAll(dirTag);
+				const disp = val ? 'inline-flex' : 'none';
+				elements.forEach(element =>
+				{
+					if (disp == element.style.display) return;
+					element.style.display = disp;
+				});
+				CheckFontSizes();
 			}
-			document.ontouchend = function (ev)
+			finally
 			{
-				CancelInternalResize();
-			}
-			document.onmouseup = function (ev)
-			{
-				CancelInternalResize();
+				DecMouse();
 			}
 		}
-		document.addEventListener('mousemove', (e) =>
+		async function stepsVisibilityClicked(event)
 		{
-			if (!isInternallyResizing) return;
-			if (e.buttons != 1)
+			saveToggle(event.target);
+			await setStepsVisibility(event.target.checked);
+		}
+		async function setStepsVisibility(val)
+		{
+			try
 			{
-				CancelInternalResize();
-				return;
+				await IncMouse();
+				const elements = document.querySelectorAll(stepTag);
+				const disp = val ? 'inline-flex' : 'none';
+				const omit = document.getElementById('jumpOmitZero').checked;
+				elements.forEach(element =>
+				{
+					if (omit && element.innerText == '0') element.style.display = 'none';
+					else element.style.display = disp;
+				});
+				CheckFontSizes();
 			}
-			DoInternalResizing(e.clientX, e.clientY);
-		});
-		document.ontouchmove = function (ev)
-		{
-			if (!isInternallyResizing) return;
-			DoInternalResizing(ev.touches[0].clientX, ev.touches[0].clientY);
-		};
-	}
-	function DoInternalResizing(x,y)
-	{
-		if (blnLeftToRight)
-		{
-			let newWidthForLyricPanel = x;
-			if (container.style.flexDirection === 'row-reverse')
-			newWidthForLyricPanel = InnerWidth() - newWidthForLyricPanel;
-			lyricPanel.style.flexBasis = newWidthForLyricPanel + 'px';
-			lyricPanel.style.width = newWidthForLyricPanel + 'px';
-			sizeRatio = lyricPanel.offsetWidth / container.offsetWidth;
+			finally
+			{
+				DecMouse();
+			}
 		}
-		else
+		async function signatureColumnClicked(event)
 		{
-			let newHeightForLyricPanel = y;
-			if (container.style.flexDirection === 'column-reverse')
-			newHeightForLyricPanel = InnerHeight() - newHeightForLyricPanel;
-			if (blnBarVisible) newHeightForLyricPanel -= topBar.clientHeight;
-			lyricPanel.style.flexBasis = newHeightForLyricPanel + 'px';
-			lyricPanel.style.height = newHeightForLyricPanel + 'px';
-			sizeRatio = newHeightForLyricPanel / container.offsetHeight;
+			saveToggle(event.target);
+			await setSignature(event.target.checked);
 		}
-		EnsureCorrectSizes();
-	}
-	function ShowScore()
-	{
-		window.open(scoreSourceAddress, 'TheScores');
-	}
-	function Swap()
-	{
-		let dir = container.style.flexDirection;
-		if (dir === 'row') dir = 'row-reverse';
-		else if (dir === 'row-reverse') dir = 'row';
-		else if (dir === 'column') dir = 'column-reverse';
-		else dir = 'column';
-		container.style.flexDirection = dir;
-	}
-	let blnLeftToRight = true;
-	function SetHorizontalLayout()
-	{
-		blnLeftToRight = true;
-		container.style.flexDirection = 'row';
-		let avail = container.offsetWidth - resizerSize;
-		let w = avail + 'px';
-		if (resizerSize > 0)
-		{
-			resizer.style.height = '100%';
-			resizer.style.width = resizerSize + 'px';
-			resizer.style.cursor = 'ew-resize';
-			w = (avail / 2) + 'px';
-			scorePanel.style.flexBasis = w;
-			scorePanel.style.width = w;
-		}
-		lyricPanel.style.flexBasis = w;
-		lyricPanel.style.width = w;
-		EnsureCorrectSizes();
-	}
-	function SetVerticalLayout()
-	{
-		blnLeftToRight = false;
-		if (resizer === null) return;
-		container.style.flexDirection = 'column';
-		resizer.style.width = '100%';
-		resizer.style.height = resizerSize+'px';
-		resizer.style.cursor = 'ns-resize';
-		let avail = container.offsetHeight - resizerSize;
-		let h = (avail / 2) + 'px';
-		lyricPanel.style.flexBasis = h;
-		lyricPanel.style.height = h;
-		scorePanel.style.flexBasis = h;
-		scorePanel.style.height = h;
-		EnsureCorrectSizes();
-	}
-	function ChangeOrientation()
-	{
-		if (blnLeftToRight) SetVerticalLayout();
-		else SetHorizontalLayout();
-	}
-	let waitAbit;
-	function DoExternalResize()
-	{
-		FixTopBar();
-		MakeSureLyricPanelCorrectSize();
-		clearTimeout(waitAbit);
-		waitAbit = setTimeout(CheckFontSizes, 400);
-	}
-	function FixTopBar()
-	{
-		let scale = 1;
-		barTable.style.transform = 'none';
-		barTable.style.transformOrigin = 'top left';
-		let ratio = controlHeight / window.innerHeight;
-		const maxRat = 0.2;
-		if (ratio > maxRat) scale = maxRat / ratio;
-		if (scale * controlHeight < 50) scale = 50 / controlHeight;
-		container.style.width = window.innerWidth + "px";
-		container.style.height = InnerHeight() + "px";
-		if (controlWidth > window.innerWidth)
-		{
-			let test = window.innerWidth / controlWidth;
-			if (test < scale) scale = test;
-		}
-		let w = (window.innerWidth - scale * controlWidth)/2;
-		barTable.style.transform = 'scale(' + scale + ') translateX(' + w + 'px)';
-		let rect = barTable.getBoundingClientRect();
-		let pad = 2;
-		topBar.style.paddingTop = pad + "px";
-		barThickness = rect.height +2*pad;
-		topBar.style.height = barThickness + "px";
-		EnsureCorrectSizes();
-	}
-	let isPaused= false;
-	function BeforePrint()
-	{
-		isPaused = mixer.paused;
-		mixer.pause();
-		UnhighlightRow();
-		StopMonitor();
-		CheckFontSizes();
-	}
-	function AfterPrint()
-	{
-		if (!isPaused) mixer.play();
-	}
-	function saveTrackValue(what, trackName, value)
-	{
-		if (!blnReady) return;
-		const name = what + "_" + trackName;
-		saveValue(name, value);
-	}
-	function getSavedTrackValue(what, trackName, defaultValue)
-	{
-		const name = what + "_" + trackName;
-		let value = getValue(name, defaultValue);
-		return value;
-	}
-	async function DoItAll()
-	{
-		if (allOK === false || allOK === null)
-		{
-			document.getElementById('container').style.display = 'none';
-			document.write("<span color='red'>Too Many Login Attempts</span>");
-			return;
-		}
-		try
+		async function setSignature(val)
 		{
 			await IncMouse();
-			let arr = (typeof arrSources !== "undefined") ? arrSources : [];
-			let theSongs = arr;
-			if (arr.length == 0)
+			const hide = !val;
+			try
 			{
-				arr = [
-				new Item("Orig", "Song.mp3", 0, false),
-				new Item("Sop", "SongS.mp3", 1, true),
-				new Item("Alto", "SongA.mp3", -1, true),
-				new Item("Tenor", "SongT.mp3", 1, true),
-				new Item("Bass", "SongB.mp3", -1, true),
-				new Item("Music", "SongM.mp3", 0, false)
-				];
-				const checkPromises = arr.map(async (item) =>
+				let temp = mainTable.rows;
+				for (let i = 0; i < temp.length; i++)
 				{
-					const exists = await checkFileExists("./" + item.audioUrl);
-					return exists ? item : null;
-				});
-				const results = await Promise.all(checkPromises);
-				theSongs = results.filter(item => item !== null);
-			}
-			let promise = null;
-			if (theSongs.length > 0)
-			{
-				mixer = new AudioMixer();
-				for (let i = 0; i < theSongs.length; i++)
-				{
-					const track = new AudioTrack(mixer, theSongs[i].name, theSongs[i].audioUrl, theSongs[i].pan, theSongs[i].makeMono);
-					mixer.addTrack(track);
+					if (temp[i].hasAttribute('t'))
+					{
+						temp[i].cells[0].classList.toggle('hide', hide);
+					}
 				}
-				promise = mixer.loadTracks();
+				setTagNameVisibility('v1', hide);
+				CheckFontSizes();
+			}
+			finally
+			{
+				DecMouse();
+			}
+		}
+		async function partColumnClicked(event)
+		{
+			saveToggle(event.target);
+			await setPartColumn(event.target.checked);
+		}
+		async function setPartColumn(val)
+		{
+			try
+			{
+				await IncMouse();
+				let table = mainTable.getElementsByTagName('table');
+				for (let i = 0; i < table.length; i++)
+				{
+					if (table[i].hasAttribute('fx'))
+					{
+						//let rows = table[i].getElementsByTagName('tr');
+						let rows = table[i].rows;
+						for (let r = 0; r < rows.length; r++)
+						if (r == 0 || rows[r].hasAttribute('tot')) rows[r].cells[0].classList.toggle('hide', !val);
+						else if (rows[r].hasAttribute('dr')) rows[r].cells[0].classList.toggle('hide', !val);
+					}
+				}
+				CheckFontSizes();
+			}
+			finally
+			{
+				DecMouse();
+			}
+		}
+		function showHideRows(event)
+		{
+			saveToggle(event.target);
+			if (event.ctrlKey)
+			{
+				const eles = document.getElementsByName('SHR')
+				for (const element of eles)
+				{
+					if (element == event.srcElement) element.checked = true;
+					else element.checked = false;
+				}
+			}
+			setPartVisibility();
+		}
+		function setPartVisibility()
+		{
+			let theRows = '';
+			const eles = document.getElementsByName('SHR')
+			for (const element of eles)
+			{
+				theRows += element.id;
+				if (element.checked) theRows += 'V';
+				else theRows += 'H';
+			}
+			if (theRows.indexOf('AV') >= 0 || theRows.indexOf('SV') >= 0) theRows += 'LV'; else theRows += 'LH';
+			if (theRows.indexOf('BV') >= 0 || theRows.indexOf('TV') >= 0) theRows += 'MV'; else theRows += 'MH';
+			if (theRows.indexOf('LV') >= 0 || theRows.indexOf('MV') >= 0) theRows += 'EV'; else theRows += 'EH';
+			showParts(theRows);
+		}
+		async function setShowHides()
+		{
+			await setSignature(document.getElementById('barShow').checked);
+			await setPartColumn(document.getElementById('partShow').checked);
+			await setDirectionsVisibility(document.getElementById('dirShow').checked);
+			await setStepsVisibility(document.getElementById('stepsShow').checked);
+		}
+		function CreateCheckbox(id, groupName, text, title, parentElement, clickEvent, indent)
+		{
+			let checkBox = document.createElement('input');
+			checkBox.type = 'checkbox';
+			checkBox.id = id;
+			checkBox.checked = false;
+			checkBox.name = groupName;
+			let label = document.createElement('label');
+			label.htmlFor = id;
+			label.style.color = 'white';
+			label.style.fontSize = '10pt';
+			label.innerHTML = text;
+			label.title = title;
+			if (indent) parentElement.insertAdjacentHTML('afterBegin', '<span style="padding-left:2ex">&nbsp;</span>');
+			parentElement.appendChild(checkBox);
+			parentElement.appendChild(label);
+			checkBox.addEventListener('click', clickEvent);
+			return checkBox;
+		}
+		let resizer = document.getElementById('resizer');
+		const lyricPanel = document.getElementById('lyricPanel');
+		const scorePanel = resizer===null?null:document.getElementById('scorePanel');
+		let isInternallyResizing = false;
+		let playHow;
+		function MoreSetup()
+		{
+			function CancelInternalResize()
+			{
+				if (isInternallyResizing)
+				{
+					isInternallyResizing = false;
+					document.body.style.cursor = 'default';
+					scoreSrc.style.display = "block";
+					resizer.style.backgroundColor = 'dodgerblue';
+					EnsureCorrectSizes();
+					CheckFontSizes();
+				}
+			}
+			if (resizer != null)
+			{
+				resizer.onmousedown = function (ev)
+				{
+					if (ev.buttons != 1) return;
+					ResizerStart(ev);
+				};
+				resizer.ontouchstart = function (ev)
+				{
+					ResizerStart(ev);
+				};
+				function ResizerStart(ev)
+				{
+					isInternallyResizing = false;
+					resizer.style.backgroundColor = 'red';
+					scoreSrc.style.display = "none";
+					document.body.style.cursor = blnLeftToRight ? 'ew-resize' : 'ns-resize';
+					isInternallyResizing = true;
+				}
+				document.ontouchend = function (ev)
+				{
+					CancelInternalResize();
+				}
+				document.onmouseup = function (ev)
+				{
+					CancelInternalResize();
+				}
+			}
+			document.addEventListener('mousemove', (e) =>
+			{
+				if (!isInternallyResizing) return;
+				if (e.buttons != 1)
+				{
+					CancelInternalResize();
+					return;
+				}
+				DoInternalResizing(e.clientX, e.clientY);
+			});
+			document.ontouchmove = function (ev)
+			{
+				if (!isInternallyResizing) return;
+				DoInternalResizing(ev.touches[0].clientX, ev.touches[0].clientY);
+			};
+		}
+		function DoInternalResizing(x,y)
+		{
+			if (blnLeftToRight)
+			{
+				let newWidthForLyricPanel = x;
+				if (container.style.flexDirection === 'row-reverse')
+				newWidthForLyricPanel = InnerWidth() - newWidthForLyricPanel;
+				lyricPanel.style.flexBasis = newWidthForLyricPanel + 'px';
+				lyricPanel.style.width = newWidthForLyricPanel + 'px';
+				sizeRatio = lyricPanel.offsetWidth / container.offsetWidth;
 			}
 			else
 			{
+				let newHeightForLyricPanel = y;
+				if (container.style.flexDirection === 'column-reverse')
+				newHeightForLyricPanel = InnerHeight() - newHeightForLyricPanel;
+				if (blnBarVisible) newHeightForLyricPanel -= topBar.clientHeight;
+				lyricPanel.style.flexBasis = newHeightForLyricPanel + 'px';
+				lyricPanel.style.height = newHeightForLyricPanel + 'px';
+				sizeRatio = newHeightForLyricPanel / container.offsetHeight;
 			}
-			await Setup();
-			mixer.currentPosition = theBegining;
-			mixer.masterPitch = 500;
-			if (!isTouchDeviceOrNoScores) MoreSetup();
-			container.style.display = 'flex';
-			SetHorizontalLayout();
-			window.addEventListener("beforeprint", BeforePrint);
-			window.addEventListener("afterprint", AfterPrint);
-			window.addEventListener('resize', DoExternalResize);
+			EnsureCorrectSizes();
+		}
+		function ShowScore()
+		{
+			window.open(scoreSourceAddress, 'TheScores');
+		}
+		function Swap()
+		{
+			let dir = container.style.flexDirection;
+			if (dir === 'row') dir = 'row-reverse';
+			else if (dir === 'row-reverse') dir = 'row';
+			else if (dir === 'column') dir = 'column-reverse';
+			else dir = 'column';
+			container.style.flexDirection = dir;
+		}
+		let blnLeftToRight = true;
+		function SetHorizontalLayout()
+		{
+			blnLeftToRight = true;
+			container.style.flexDirection = 'row';
+			let avail = container.offsetWidth - resizerSize;
+			let w = avail + 'px';
+			if (resizerSize > 0)
+			{
+				resizer.style.height = '100%';
+				resizer.style.width = resizerSize + 'px';
+				resizer.style.cursor = 'ew-resize';
+				w = (avail / 2) + 'px';
+				scorePanel.style.flexBasis = w;
+				scorePanel.style.width = w;
+			}
+			lyricPanel.style.flexBasis = w;
+			lyricPanel.style.width = w;
+			EnsureCorrectSizes();
+		}
+		function SetVerticalLayout()
+		{
+			blnLeftToRight = false;
+			if (resizer === null) return;
+			container.style.flexDirection = 'column';
+			resizer.style.width = '100%';
+			resizer.style.height = resizerSize+'px';
+			resizer.style.cursor = 'ns-resize';
+			let avail = container.offsetHeight - resizerSize;
+			let h = (avail / 2) + 'px';
+			lyricPanel.style.flexBasis = h;
+			lyricPanel.style.height = h;
+			scorePanel.style.flexBasis = h;
+			scorePanel.style.height = h;
+			EnsureCorrectSizes();
+		}
+		function ChangeOrientation()
+		{
+			if (blnLeftToRight) SetVerticalLayout();
+			else SetHorizontalLayout();
+		}
+		let waitAbit;
+		function DoExternalResize()
+		{
 			FixTopBar();
-			setTimeout(CheckFontSizes, 250);
-			SetKeepPlaying();
-			Object.defineProperty(DOMRect.prototype, 'contains', {
-			value: function (x, y)
+			MakeSureLyricPanelCorrectSize();
+			clearTimeout(waitAbit);
+			waitAbit = setTimeout(CheckFontSizes, 400);
+		}
+		function FixTopBar()
+		{
+			let scale = 1;
+			barTable.style.transform = 'none';
+			barTable.style.transformOrigin = 'top left';
+			let ratio = controlHeight / window.innerHeight;
+			const maxRat = 0.2;
+			if (ratio > maxRat) scale = maxRat / ratio;
+			if (scale * controlHeight < 50) scale = 50 / controlHeight;
+			container.style.width = window.innerWidth + "px";
+			container.style.height = InnerHeight() + "px";
+			if (controlWidth > window.innerWidth)
 			{
-				if (x < this.left || y < this.top || x > this.right || y > this.bottom) return false;
-				return true;
-			},
-			enumerable: false
-		});
-		document.addEventListener('mousemove', ShowNote);
-		if (promise != null) await promise;
-		document.getElementById('message').style.display = 'none';
-		document.getElementById('pardiv').setAttribute('aria-busy', 'false');
-		blnReady = true;
-	}
-	finally
-	{
-		DecMouse();
-	}
-}
-function ShowNote(event)
-{
-	const noteElement = event.target.closest('x[v]') || event.target.querySelector('x[v]');
-	if (noteElement)
-	{
-		var rect = noteElement.getBoundingClientRect();
-		if (rect.contains(event.clientX, event.clientY))
-		{
-			currentNote.innerText = noteElement.getAttribute('v');
-			return;
+				let test = window.innerWidth / controlWidth;
+				if (test < scale) scale = test;
+			}
+			let w = (window.innerWidth - scale * controlWidth)/2;
+			barTable.style.transform = 'scale(' + scale + ') translateX(' + w + 'px)';
+			let rect = barTable.getBoundingClientRect();
+			let pad = 2;
+			topBar.style.paddingTop = pad + "px";
+			barThickness = rect.height +2*pad;
+			topBar.style.height = barThickness + "px";
+			EnsureCorrectSizes();
 		}
-		else
+		let isPaused= false;
+		function BeforePrint()
 		{
-			//let d = event.clientY - y;
+			isPaused = mixer.paused;
+			mixer.pause();
+			UnhighlightRow();
+			StopMonitor();
+			CheckFontSizes();
 		}
-	}
-	currentNote.innerText = '-';
-}
-class AudioControllerXXXXX extends EventTarget
-{
-	constructor()
-	{
-		super();
-		this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-		this.audioElement = new Audio();
-		this.audioElement.crossOrigin = "anonymous";
-		this.sourceNode = this.audioContext.createMediaElementSource(this.audioElement);
-		this.gainNode = this.audioContext.createGain();
-		this.gainNode.gain.value = 2.5;
-		this.bassFilter = this.audioContext.createBiquadFilter();
-		this.bassFilter.type = "lowshelf";
-		this.bassFilter.frequency.value = 200;
-		this.bassFilter.gain.value = 0;
-		this.trebleFilter = this.audioContext.createBiquadFilter();
-		this.trebleFilter.type = "highshelf";
-		this.trebleFilter.frequency.value = 3000;
-		this.trebleFilter.gain.value = 0;
-		this.sourceNode.connect(this.gainNode);
-		this.gainNode.connect(this.bassFilter);
-		this.bassFilter.connect(this.trebleFilter);
-		this.trebleFilter.connect(this.audioContext.destination);
-		this.startTime = 0;
-		this.elapsedOffset = 0;
-		this.isPlaying = false;
-		this._setupEventForwarding();
-	}
-	async load(url)
-	{
-		this.audioElement.src = url;
-		return new Promise((resolve, reject) =>
+		function AfterPrint()
 		{
-			const onLoad = () =>
+			if (!isPaused) mixer.play();
+		}
+		function saveTrackValue(what, trackName, value)
+		{
+			if (!blnReady) return;
+			const name = what + "_" + trackName;
+			saveValue(name, value);
+		}
+		function getSavedTrackValue(what, trackName, defaultValue)
+		{
+			const name = what + "_" + trackName;
+			let value = getValue(name, defaultValue);
+			return value;
+		}
+		async function DoItAll()
+		{
+			if (allOK === false || allOK === null)
 			{
-				this.audioElement.removeEventListener('error', onError);
-				resolve();
-			};
-			const onError = (error) =>
+				document.getElementById('container').style.display = 'none';
+				document.write("<span color='red'>Too Many Login Attempts</span>");
+				return;
+			}
+			try
 			{
-				this.audioElement.removeEventListener('loadedmetadata', onLoad);
-				reject(new Error(`Failed to load audio: ${error.message || 'Unknown error'}`));
-			};
-			this.audioElement.addEventListener('loadedmetadata', onLoad, { once: true });
-			this.audioElement.addEventListener('error', onError, { once: true });
-		});
-	}
-	play()
-	{
-		if (this.isPlaying) return;
-		if (this.audioContext.state === 'suspended') this.audioContext.resume();
-		this.startTime = this.audioContext.currentTime;
-		this.audioElement.play();
-		this.isPlaying = true;
-	}
-	pause()
-	{
-		if (!this.isPlaying) return;
-		this.audioElement.pause();
-		this.elapsedOffset += (this.audioContext.currentTime - this.startTime) * this.playbackRate;
-		this.isPlaying = false;
-	}
-	stop()
-	{
-		this.pause();
-		this.currentTime = 0;
-	}
-	get paused()
-	{
-		return (!this.isPlaying);
-	}
-	#vScale = 2.0;
-	get volume()
-	{
-		return this.gainNode ? this.gainNode.gain.value / this.#vScale : 1.0;
-	}
-	set volume(value)
-	{
-		const normalizedValue = this.#vScale * Math.max(0, Math.min(1, value));
-		if (this.gainNode && this.audioContext)
+				await IncMouse();
+				let arr = (typeof arrSources !== "undefined") ? arrSources : [];
+				let theSongs = arr;
+				if (arr.length == 0)
+				{
+					arr = [
+					new Item("Orig", "Song.mp3", 0, false),
+					new Item("Sop", "SongS.mp3", 1, true),
+					new Item("Alto", "SongA.mp3", -1, true),
+					new Item("Tenor", "SongT.mp3", 1, true),
+					new Item("Bass", "SongB.mp3", -1, true),
+					new Item("Music", "SongM.mp3", 0, false)
+					];
+					const checkPromises = arr.map(async (item) =>
+					{
+						const exists = await checkFileExists("./" + item.audioUrl);
+						return exists ? item : null;
+					});
+					const results = await Promise.all(checkPromises);
+					theSongs = results.filter(item => item !== null);
+				}
+				let promise = null;
+				if (theSongs.length > 0)
+				{
+					mixer = new AudioMixer();
+					for (let i = 0; i < theSongs.length; i++)
+					{
+						const track = new AudioTrack(mixer, theSongs[i].name, theSongs[i].audioUrl, theSongs[i].pan, theSongs[i].makeMono);
+						mixer.addTrack(track);
+					}
+					promise = mixer.loadTracks();
+				}
+				else
+				{
+				}
+				await Setup();
+				mixer.currentPosition = theBegining;
+				mixer.masterPitch = 500;
+				if (!isTouchDeviceOrNoScores) MoreSetup();
+				container.style.display = 'flex';
+				SetHorizontalLayout();
+				window.addEventListener("beforeprint", BeforePrint);
+				window.addEventListener("afterprint", AfterPrint);
+				window.addEventListener('resize', DoExternalResize);
+				FixTopBar();
+				setTimeout(CheckFontSizes, 250);
+				SetKeepPlaying();
+				Object.defineProperty(DOMRect.prototype, 'contains', {
+				value: function (x, y)
+				{
+					if (x < this.left || y < this.top || x > this.right || y > this.bottom) return false;
+					return true;
+				},
+				enumerable: false
+			});
+			document.addEventListener('mousemove', ShowNote);
+			if (promise != null) await promise;
+			document.getElementById('message').style.display = 'none';
+			document.getElementById('pardiv').setAttribute('aria-busy', 'false');
+			blnReady = true;
+		}
+		finally
 		{
-			this.gainNode.gain.value = normalizedValue;
+			DecMouse();
 		}
 	}
-	get bass()
+	const theRatio = exRatio(document.body);
+	function ShowNote(event)
 	{
-		return this.bassFilter ? this.bassFilter.gain.value : 0;
-	}
-	set bass(value)
-	{
-		if (this.bassFilter && this.audioContext)
+		const noteElement = event.target.closest('x[v]') || event.target.querySelector('x[v]');
+		if (noteElement)
 		{
-			this.bassFilter.gain.setValueAtTime(value, this.audioContext.currentTime);
+			var rect = noteElement.getBoundingClientRect();
+			if (rect.contains(event.clientX, event.clientY))
+			{
+				currentNote.innerText = noteElement.getAttribute('v');
+				return;
+			}
+			else
+			{
+				//let d = event.clientY - y;
+			}
 		}
+		currentNote.innerText = '-';
 	}
-	get treble()
+	class AudioControllerXXXXX extends EventTarget
 	{
-		return this.trebleFilter ? this.trebleFilter.gain.value : 0;
-	}
-	set treble(value)
-	{
-		if (this.trebleFilter && this.audioContext)
+		constructor()
 		{
-			this.trebleFilter.gain.setValueAtTime(value, this.audioContext.currentTime);
-		}
-	}
-	get echoTime()
-	{
-		return this.delayNode ? this.delayNode.delayTime.value : 0.3;
-	}
-	set echoTime(value)
-	{
-		if (value < 0) value = 0;
-		else if (value > 1) value = 1;
-		if (this.delayNode && this.audioContext)
-		{
-			console.log("echo " + value);
-			this.delayNode.delayTime.setValueAtTime(value, this.audioContext.currentTime);
-			console.log("echoTime " + this.echoTime);
-		}
-	}
-	get baseLatency()
-	{
-		return this.audioContext.baseLatency || 0;
-	}
-	get outputLatency()
-	{
-		return this.audioContext.outputLatency || 0;
-	}
-	get currentPosition()
-	{
-		if (!this.isPlaying)
-		{
-			return this.elapsedOffset;
-		}
-		const currentRunTime = (this.audioContext.currentTime - this.startTime) * this.playbackRate;
-		const rawSongTime = this.elapsedOffset + currentRunTime;
-		const outputLag = this.audioContext.outputLatency || 0;
-		const baseLag = this.audioContext.baseLatency || 0;
-		const totalHardwareLag = outputLag + baseLag;
-		return Math.max(0, rawSongTime - totalHardwareLag);
-	}
-	set currentPosition(seconds)
-	{
-		this.elapsedOffset = Math.max(0, Math.min(seconds, this.duration));
-		this.audioElement.currentTime = this.elapsedOffset;
-		if (this.isPlaying)
-		{
-			this.startTime = this.audioContext.currentTime;
-		}
-	}
-	get playbackRate()
-	{
-		return this.audioElement.playbackRate;
-	}
-	set playbackRate(speed)
-	{
-		const targetSpeed = Math.max(0.1, speed);
-		if (this.isPlaying)
-		{
-			this.elapsedOffset += (this.audioContext.currentTime - this.startTime) * this.playbackRate;
-			this.startTime = this.audioContext.currentTime;
-		}
-		this.audioElement.playbackRate = targetSpeed;
-	}
-	get duration()
-	{
-		return this.audioElement.duration || 0;
-	}
-	_setupEventForwarding()
-	{
-		this._boundPlay = () => this.dispatchEvent(new Event('play'));
-		this._boundPause = () => this.dispatchEvent(new Event('pause'));
-		this._boundRateChange = () => this.dispatchEvent(new Event('ratechange'));
-		this._boundEnded = () =>
-		{
-			this.isPlaying = false;
+			super();
+			this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+			this.audioElement = new Audio();
+			this.audioElement.crossOrigin = "anonymous";
+			this.sourceNode = this.audioContext.createMediaElementSource(this.audioElement);
+			this.gainNode = this.audioContext.createGain();
+			this.gainNode.gain.value = 2.5;
+			this.bassFilter = this.audioContext.createBiquadFilter();
+			this.bassFilter.type = "lowshelf";
+			this.bassFilter.frequency.value = 200;
+			this.bassFilter.gain.value = 0;
+			this.trebleFilter = this.audioContext.createBiquadFilter();
+			this.trebleFilter.type = "highshelf";
+			this.trebleFilter.frequency.value = 3000;
+			this.trebleFilter.gain.value = 0;
+			this.sourceNode.connect(this.gainNode);
+			this.gainNode.connect(this.bassFilter);
+			this.bassFilter.connect(this.trebleFilter);
+			this.trebleFilter.connect(this.audioContext.destination);
+			this.startTime = 0;
 			this.elapsedOffset = 0;
-			this.dispatchEvent(new Event('ended'));
-		};
-		this.audioElement.addEventListener('play', this._boundPlay);
-		this.audioElement.addEventListener('pause', this._boundPause);
-		this.audioElement.addEventListener('ratechange', this._boundRateChange);
-		this.audioElement.addEventListener('ended', this._boundEnded);
-	}
-	async destroy()
-	{
-		if (this.isPlaying)
+			this.isPlaying = false;
+			this._setupEventForwarding();
+		}
+		async load(url)
 		{
+			this.audioElement.src = url;
+			return new Promise((resolve, reject) =>
+			{
+				const onLoad = () =>
+				{
+					this.audioElement.removeEventListener('error', onError);
+					resolve();
+				};
+				const onError = (error) =>
+				{
+					this.audioElement.removeEventListener('loadedmetadata', onLoad);
+					reject(new Error(`Failed to load audio: ${error.message || 'Unknown error'}`));
+				};
+				this.audioElement.addEventListener('loadedmetadata', onLoad, { once: true });
+				this.audioElement.addEventListener('error', onError, { once: true });
+			});
+		}
+		play()
+		{
+			if (this.isPlaying) return;
+			if (this.audioContext.state === 'suspended') this.audioContext.resume();
+			this.startTime = this.audioContext.currentTime;
+			this.audioElement.play();
+			this.isPlaying = true;
+		}
+		pause()
+		{
+			if (!this.isPlaying) return;
 			this.audioElement.pause();
+			this.elapsedOffset += (this.audioContext.currentTime - this.startTime) * this.playbackRate;
 			this.isPlaying = false;
 		}
-		this.audioElement.src = "";
-		this.audioElement.load();
-		if (this._boundPlay) this.audioElement.removeEventListener('play', this._boundPlay);
-		if (this._boundPause) this.audioElement.removeEventListener('pause', this._boundPause);
-		if (this._boundRateChange) this.audioElement.removeEventListener('ratechange', this._boundRateChange);
-		if (this._boundEnded) this.audioElement.removeEventListener('ended', this._boundEnded);
-		if (this.sourceNode)
+		stop()
 		{
-			this.sourceNode.disconnect();
+			this.pause();
+			this.currentTime = 0;
 		}
-		if (this.audioContext && this.audioContext.state !== 'closed')
+		get paused()
 		{
-			await this.audioContext.close();
+			return (!this.isPlaying);
 		}
-		this.audioElement = null;
-		this.sourceNode = null;
-		this.audioContext = null;
+		#vScale = 2.0;
+		get volume()
+		{
+			return this.gainNode ? this.gainNode.gain.value / this.#vScale : 1.0;
+		}
+		set volume(value)
+		{
+			const normalizedValue = this.#vScale * Math.max(0, Math.min(1, value));
+			if (this.gainNode && this.audioContext)
+			{
+				this.gainNode.gain.value = normalizedValue;
+			}
+		}
+		get bass()
+		{
+			return this.bassFilter ? this.bassFilter.gain.value : 0;
+		}
+		set bass(value)
+		{
+			if (this.bassFilter && this.audioContext)
+			{
+				this.bassFilter.gain.setValueAtTime(value, this.audioContext.currentTime);
+			}
+		}
+		get treble()
+		{
+			return this.trebleFilter ? this.trebleFilter.gain.value : 0;
+		}
+		set treble(value)
+		{
+			if (this.trebleFilter && this.audioContext)
+			{
+				this.trebleFilter.gain.setValueAtTime(value, this.audioContext.currentTime);
+			}
+		}
+		get echoTime()
+		{
+			return this.delayNode ? this.delayNode.delayTime.value : 0.3;
+		}
+		set echoTime(value)
+		{
+			if (value < 0) value = 0;
+			else if (value > 1) value = 1;
+			if (this.delayNode && this.audioContext)
+			{
+				console.log("echo " + value);
+				this.delayNode.delayTime.setValueAtTime(value, this.audioContext.currentTime);
+				console.log("echoTime " + this.echoTime);
+			}
+		}
+		get baseLatency()
+		{
+			return this.audioContext.baseLatency || 0;
+		}
+		get outputLatency()
+		{
+			return this.audioContext.outputLatency || 0;
+		}
+		get currentPosition()
+		{
+			if (!this.isPlaying)
+			{
+				return this.elapsedOffset;
+			}
+			const currentRunTime = (this.audioContext.currentTime - this.startTime) * this.playbackRate;
+			const rawSongTime = this.elapsedOffset + currentRunTime;
+			const outputLag = this.audioContext.outputLatency || 0;
+			const baseLag = this.audioContext.baseLatency || 0;
+			const totalHardwareLag = outputLag + baseLag;
+			return Math.max(0, rawSongTime - totalHardwareLag);
+		}
+		set currentPosition(seconds)
+		{
+			this.elapsedOffset = Math.max(0, Math.min(seconds, this.duration));
+			this.audioElement.currentTime = this.elapsedOffset;
+			if (this.isPlaying)
+			{
+				this.startTime = this.audioContext.currentTime;
+			}
+		}
+		get playbackRate()
+		{
+			return this.audioElement.playbackRate;
+		}
+		set playbackRate(speed)
+		{
+			const targetSpeed = Math.max(0.1, speed);
+			if (this.isPlaying)
+			{
+				this.elapsedOffset += (this.audioContext.currentTime - this.startTime) * this.playbackRate;
+				this.startTime = this.audioContext.currentTime;
+			}
+			this.audioElement.playbackRate = targetSpeed;
+		}
+		get duration()
+		{
+			return this.audioElement.duration || 0;
+		}
+		_setupEventForwarding()
+		{
+			this._boundPlay = () => this.dispatchEvent(new Event('play'));
+			this._boundPause = () => this.dispatchEvent(new Event('pause'));
+			this._boundRateChange = () => this.dispatchEvent(new Event('ratechange'));
+			this._boundEnded = () =>
+			{
+				this.isPlaying = false;
+				this.elapsedOffset = 0;
+				this.dispatchEvent(new Event('ended'));
+			};
+			this.audioElement.addEventListener('play', this._boundPlay);
+			this.audioElement.addEventListener('pause', this._boundPause);
+			this.audioElement.addEventListener('ratechange', this._boundRateChange);
+			this.audioElement.addEventListener('ended', this._boundEnded);
+		}
+		async destroy()
+		{
+			if (this.isPlaying)
+			{
+				this.audioElement.pause();
+				this.isPlaying = false;
+			}
+			this.audioElement.src = "";
+			this.audioElement.load();
+			if (this._boundPlay) this.audioElement.removeEventListener('play', this._boundPlay);
+			if (this._boundPause) this.audioElement.removeEventListener('pause', this._boundPause);
+			if (this._boundRateChange) this.audioElement.removeEventListener('ratechange', this._boundRateChange);
+			if (this._boundEnded) this.audioElement.removeEventListener('ended', this._boundEnded);
+			if (this.sourceNode)
+			{
+				this.sourceNode.disconnect();
+			}
+			if (this.audioContext && this.audioContext.state !== 'closed')
+			{
+				await this.audioContext.close();
+			}
+			this.audioElement = null;
+			this.sourceNode = null;
+			this.audioContext = null;
+		}
 	}
-}
-setTimeout(DoItAll, 0);
+	setTimeout(DoItAll, 0);

@@ -50,14 +50,13 @@ function showParts(parts)
 		}
 	}
 }
-function sortParts(order)
+function createColumnsRow()
 {
-	theOrder = order;
 	const tables = document.querySelectorAll("table[fx]");
 	let m = tables.length;
 	for (let t = 0; t < m; t++)
 	{
-		let nc = tables[t].getAttribute('cs');
+		let nc = +tables[t].getAttribute('cs');
 		if (nc)
 		{
 			let aRow = document.createElement('tr');
@@ -73,6 +72,18 @@ function sortParts(order)
 			}
 			tables[t].prepend(aRow);
 		}
+	}
+}
+let lastOrder = '';
+function sortParts(order)
+{
+	if (order === lastOrder) return;
+	lastOrder = order;
+	theOrder = order;
+	const tables = document.querySelectorAll("table[fx]");
+	let m = tables.length;
+	for (let t = 0; t < m; t++)
+	{
 		let rows = tables[t].querySelectorAll('tr[PL]');
 		const forSorting = [...rows];
 		if (forSorting.length > 1)
@@ -124,31 +135,31 @@ function FixRows(data)
 						let letter = GetLetter(part);
 						row.setAttribute(letter + '_FG', '');
 					}
-					const images = row.querySelectorAll('img');
+					const topX = VO_ToOffsetX(row.getAttribute('VO'));
+					const heightX = H_ToHeightX(row.getAttribute('H'));
+					const images = row.querySelectorAll('img[st]');
 					for (let i = 0; i < images.length; i++)
 					{
 						let image = images[i];
-						if (image.hasAttribute('st'))
+						if (useData)
+						image.src = data;
+						else
 						{
-							if (useData)
-							image.src = data;
-							else
-							{
-								image.src = '../../Control/Staff' + image.getAttribute('st') + '.svg';
-							}
-							image.setAttribute('STIM', '');
-							let div = image.parentElement;
-							div.setAttribute('PEN', '');
-							div.setAttribute('PR', '');
-							div.style.top = top;
-							div.style.height = height;
-							image.nextElementSibling.setAttribute('OVLIM', '');
+							image.src = '../../Control/Staff' + image.getAttribute('st') + '.svg';
 						}
+						image.setAttribute('STIM', '');
+						let div = image.parentElement;
+						div.setAttribute('PEN', '');
+						div.setAttribute('PR', '');
+						div.setAttribute('exH', heightX);
+						div.setAttribute('exT', topX);
+						image.nextElementSibling.setAttribute('OVLIM', '');
 					}
 				}
 			}
 		}
 	}
+	createColumnsRow();
 	sortParts("SALTBM");
 	let elements = document.querySelectorAll('td[w]');
 	for (let i = 0; i < elements.length; i++)
@@ -156,17 +167,13 @@ function FixRows(data)
 		const el = elements[i];
 		el.style.width = el.getAttribute('w') / 100 + '%';
 	}
-	elements = document.querySelectorAll('div[H]');
-	for (let i = 0; i < elements.length; i++)
+	ToPixels(100);
+	const tables = document.querySelectorAll('[type]');
+	for (let t = 0; t < tables.length; t++)
 	{
-		const el = elements[i];
-		el.style.height = H_ToHeight(el.getAttribute('H'));
-	}
-	elements = document.querySelectorAll('x[VA], span[VA]');
-	for (let i = 0; i < elements.length; i++)
-	{
-		const el = elements[i];
-		el.style.verticalAlign = VA_ToOffset(el.getAttribute('VA'));
+		const rows = tables[t].rows;
+		for (let i = 0; i < rows.length; i++)
+		rows[i].setAttribute('B3D', '');
 	}
 	const up = '\u2191';
 	const upRight = '\u2197';
@@ -174,33 +181,19 @@ function FixRows(data)
 	const down = '\u2193';
 	const downRight = '\u2198';
 	elements = document.querySelectorAll('w[d]');
-	for (let i = 0; i < elements.length; i++)
+	for (const el of elements)
 	{
-		const el = elements[i];
 		const diff = el.getAttribute('d');
 		const z = document.createElement('z');
 		z.innerText = Math.abs(diff);
 		const oct = (Math.floor(diff / 7) * 7) === diff;
 		let color;
 		if (oct)
-		{
-			color = diff < 0 ? 'blue' : 'red';
-		}
+		color = diff < 0 ? 'blue' : 'red';
 		else
-		{
-			const computedStyle = window.getComputedStyle(el);
-			let hex = HexColor(computedStyle.color);
-			hex &= 0xFFFFFF;
-			hex >>>= 0;
-			hex = ~hex;
-			hex &= 0xFCFCFC;
-			hex >>>= 2;
-			hex = ~hex;
-			hex &= 0xFFFFFF;
-			hex >>>= 0;
-			color = diff < 0 ? "#" + hex.toString(16): 'white';
-		}
+		color = diff < 0 ? 'lightgray' : 'white';
 		z.style.background = color;
+		z.style.display = 'none';
 		el.after(z);
 		let ind;
 		if (diff >= 4) ind = up;
@@ -210,6 +203,51 @@ function FixRows(data)
 		else ind = downRight;
 		el.innerText += ind;
 	}
+}
+const exToPixels = 22.86723388671875*0.5;
+function ToPixels(fontSizePct)
+{
+	let scx = exToPixels * fontSizePct / 100;
+	elements = document.querySelectorAll('div[exT]');
+	for (let i = 0; i < elements.length; i++)
+	{
+		const el = elements[i];
+		let h = Math.floor(0.5 + el.getAttribute('exH')*scx);
+		el.style.height = h + 'px';
+		let t = Math.floor(0.5 + el.getAttribute('exT') * scx);
+		el.style.top = t + 'px';
+	}
+	elements = document.querySelectorAll('x[VA], span[VA]');
+	for (let i = 0; i < elements.length; i++)
+	{
+		const el = elements[i];
+		let va = VA_ToOffsetX(el.getAttribute('VA'));
+		va *= scx;
+		el.style.verticalAlign = Math.floor(va+0.5)+'px';
+	}
+	elements = document.querySelectorAll('z');
+	for (let i = 0; i < elements.length; i++)
+	{
+		const el = elements[i];
+		let va = Math.floor(0.5 - 0.2 * scx);
+		el.style.transform = 'translateY(' + va + 'px)';
+	}
+}
+function getAbsoluteBoundingRect(element)
+{
+	const rect = element.getBoundingClientRect();
+	const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+	const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+	return {
+	top: rect.top + scrollTop,
+	bottom: rect.bottom + scrollTop,
+	left: rect.left + scrollLeft,
+	right: rect.right + scrollLeft,
+	width: rect.width,
+	height: rect.height,
+	x: rect.x + scrollLeft,
+	y: rect.y + scrollTop
+};
 }
 const canvasContext = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
 ;
@@ -287,4 +325,36 @@ async function CheckFontSizes()
 	{
 		DecMouse();
 	}
+}
+function exToPixelMultiplier(targetElement)
+{
+	const targetStyle = window.getComputedStyle(targetElement);
+	const dummy = document.createElement('div');
+	dummy.style.fontSize =  targetStyle.fontSize;
+	dummy.style.fontFamily = targetStyle.fontFamily;
+	dummy.style.fontWeight = targetStyle.fontWeight;
+	dummy.style.width = '100ex';
+	dummy.style.position = 'absolute';
+	dummy.style.visibility = 'hidden';
+	document.body.appendChild(dummy);
+	const rect = dummy.getBoundingClientRect();
+	const w = rect.width;
+	document.body.removeChild(dummy);
+	return w / 100;
+}
+function exRatio(targetElement)
+{
+	const targetStyle = window.getComputedStyle(targetElement);
+	const dummy = document.createElement('div');
+	dummy.style.fontSize = '100px';
+	dummy.style.fontFamily = targetStyle.fontFamily;
+	dummy.style.fontWeight = targetStyle.fontWeight;
+	dummy.style.width = '100ex';
+	dummy.style.position = 'absolute';
+	dummy.style.visibility = 'hidden';
+	document.body.appendChild(dummy);
+	const rect = dummy.getBoundingClientRect();
+	const w = rect.width;
+	document.body.removeChild(dummy);
+	return w / 100/100;
 }
