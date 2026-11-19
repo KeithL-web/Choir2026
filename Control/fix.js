@@ -99,109 +99,126 @@ function sortParts(order)
 }
 let hasSop = false, hasAlto = false, hasBass = false, hasTenor = false;
 let hasMen = false, hasLadies = false, hasAll = false, hasOther = false;
-function FixRows(data)
+async function FixRows(data)
 {
-	let tabs = document.getElementsByTagName('table');
-	let m = tabs.length;
-	let useData = (data != undefined);
-	for (let t = 0; t < m; t++)
+	await IncMouse()
+	try
 	{
-		let table = tabs[t];
-		if (table.hasAttribute('fx'))
+		let tabs = document.getElementsByTagName('table');
+		let m = tabs.length;
+		let useData = (data != undefined);
+		for (let t = 0; t < m; t++)
 		{
-			let rows = table.rows;
-			for (let r = 0; r < rows.length; r++)
+			let table = tabs[t];
+			if (table.hasAttribute('fx'))
 			{
-				let row = rows[r];
-				if (row.hasAttribute('tot'))
+				let rows = table.rows;
+				for (let r = 0; r < rows.length; r++)
 				{
-					const top = VO_ToOffset(row.getAttribute('VO'));
-					const height = H_ToHeight(row.getAttribute('H'));
-					let part = row.getAttribute('PL');
-					switch (part)
+					let row = rows[r];
+					if (row.hasAttribute('tot'))
 					{
-						case 'S': hasSop = true; break;
-						case 'A': hasAlto = true; break;
-						case 'T': hasTenor = true; break;
-						case 'B': hasBass = true; break;
-						case 'M': hasMen = true; break;
-						case 'L': hasLadies = true; break;
-						case 'E': hasAll = true; break;
-						case '!': break;
-						default: hasOther = true; break;
-					}
-					if (part != null)
-					{
-						let letter = GetLetter(part);
-						row.setAttribute(letter + '_FG', '');
-					}
-					const topX = VO_ToOffsetX(row.getAttribute('VO'));
-					const heightX = H_ToHeightX(row.getAttribute('H'));
-					const images = row.querySelectorAll('img[st]');
-					for (let i = 0; i < images.length; i++)
-					{
-						let image = images[i];
-						if (useData)
-						image.src = data;
-						else
+						const top = VO_ToOffset(row.getAttribute('VO'));
+						const height = H_ToHeight(row.getAttribute('H'));
+						let part = row.getAttribute('PL');
+						switch (part)
 						{
-							image.src = '../../Control/Staff' + image.getAttribute('st') + '.svg';
+							case 'S': hasSop = true; break;
+							case 'A': hasAlto = true; break;
+							case 'T': hasTenor = true; break;
+							case 'B': hasBass = true; break;
+							case 'M': hasMen = true; break;
+							case 'L': hasLadies = true; break;
+							case 'E': hasAll = true; break;
+							case '!': break;
+							default: hasOther = true; break;
 						}
-						image.setAttribute('STIM', '');
-						let div = image.parentElement;
-						div.setAttribute('PEN', '');
-						div.setAttribute('PR', '');
-						div.setAttribute('exH', heightX);
-						div.setAttribute('exT', topX);
-						image.nextElementSibling.setAttribute('OVLIM', '');
+						if (part != null)
+						{
+							let letter = GetLetter(part);
+							row.setAttribute(letter + '_FG', '');
+						}
+						const topX = VO_ToOffsetX(row.getAttribute('VO'));
+						const heightX = H_ToHeightX(row.getAttribute('H'));
+						const images = row.querySelectorAll('img[st]');
+						for (let i = 0; i < images.length; i++)
+						{
+							let image = images[i];
+							if (useData)
+							image.src = data;
+							else
+							{
+								image.src = '../../Control/Staff' + image.getAttribute('st') + '.svg';
+							}
+							image.setAttribute('STIM', '');
+							let div = image.parentElement;
+							div.setAttribute('PEN', '');
+							div.setAttribute('PR', '');
+							div.setAttribute('exH', heightX);
+							div.setAttribute('exT', topX);
+							image.nextElementSibling.setAttribute('OVLIM', '');
+						}
+						const zm = row.querySelector('table[zm]');
+						zm.setAttribute('offset', topX + 10);
+						zm.setAttribute('PR', '');
 					}
 				}
 			}
 		}
+		createColumnsRow();
+		sortParts("SALTBM");
+		let elements = document.querySelectorAll('td[w]');
+		for (let i = 0; i < elements.length; i++)
+		{
+			const el = elements[i];
+			el.style.width = el.getAttribute('w') / 100 + '%';
+		}
+		const tables = document.querySelectorAll('table[type]');
+		for (let t = 0; t < tables.length; t++)
+		{
+			const rows = tables[t].rows;
+			for (let i = 0; i < rows.length; i++)
+			{
+				const bn = rows[i].getAttribute('bn');
+				if (bn == '1' || bn === null)
+				rows[i].setAttribute('B3D', '');
+			}
+		}
+		const up = '\u2191';
+		const upRight = '\u2197';
+		const right = '\u2192';
+		const down = '\u2193';
+		const downRight = '\u2198';
+		elements = document.querySelectorAll('w[d]');
+		for (const el of elements)
+		{
+			let stepDiff = Number(el.getAttribute('s'));
+			const midiDiff = Number(el.getAttribute('d'));
+			if (Math.abs(midiDiff) < Math.abs(stepDiff)) stepDiff = midiDiff;
+			const z = document.createElement('z');
+			z.innerText = Math.abs(stepDiff);
+			const oct = (Math.floor(stepDiff / 7) * 7) === stepDiff;
+			let color;
+			if (oct && stepDiff!=0 )
+			color = stepDiff < 0 ? 'lightblue' : 'orange';
+			else
+			color = stepDiff < 0 ? 'lightgray' : 'white';
+			z.style.background = color;
+			z.style.display = 'none';
+			el.after(z);
+			let ind;
+			if (midiDiff >= 7) ind = up;
+			else if (midiDiff > 0) ind = upRight;
+			else if (midiDiff == 0) ind = right;
+			else if (midiDiff <= -7) ind = down;
+			else ind = downRight;
+			el.innerText += ind;
+		}
+		ToPixels(100);
 	}
-	createColumnsRow();
-	sortParts("SALTBM");
-	let elements = document.querySelectorAll('td[w]');
-	for (let i = 0; i < elements.length; i++)
+	finally
 	{
-		const el = elements[i];
-		el.style.width = el.getAttribute('w') / 100 + '%';
-	}
-	ToPixels(100);
-	const tables = document.querySelectorAll('[type]');
-	for (let t = 0; t < tables.length; t++)
-	{
-		const rows = tables[t].rows;
-		for (let i = 0; i < rows.length; i++)
-		rows[i].setAttribute('B3D', '');
-	}
-	const up = '\u2191';
-	const upRight = '\u2197';
-	const right = '\u2192';
-	const down = '\u2193';
-	const downRight = '\u2198';
-	elements = document.querySelectorAll('w[d]');
-	for (const el of elements)
-	{
-		const diff = el.getAttribute('d');
-		const z = document.createElement('z');
-		z.innerText = Math.abs(diff);
-		const oct = (Math.floor(diff / 7) * 7) === diff;
-		let color;
-		if (oct)
-		color = diff < 0 ? 'blue' : 'red';
-		else
-		color = diff < 0 ? 'lightgray' : 'white';
-		z.style.background = color;
-		z.style.display = 'none';
-		el.after(z);
-		let ind;
-		if (diff >= 4) ind = up;
-		else if (diff > 0) ind = upRight;
-		else if (diff == 0) ind = right;
-		else if (diff <= -4) ind = down;
-		else ind = downRight;
-		el.innerText += ind;
+		DecMouse();
 	}
 }
 const exToPixels = 22.86723388671875*0.5;
@@ -214,7 +231,14 @@ function ToPixels(fontSizePct)
 		const el = elements[i];
 		let h = Math.floor(0.5 + el.getAttribute('exH')*scx);
 		el.style.height = h + 'px';
-		let t = Math.floor(0.5 + el.getAttribute('exT') * scx);
+		let t = Math.floor( 0.5 + el.getAttribute('exT') * scx);
+		el.style.top = t + 'px';
+	}
+	elements = document.querySelectorAll('table[zm]');
+	for (let i = 0; i < elements.length; i++)
+	{
+		const el = elements[i];
+		let t = Math.floor(0.5 + el.getAttribute('offset') * scx);
 		el.style.top = t + 'px';
 	}
 	elements = document.querySelectorAll('x[VA], span[VA]');
@@ -308,11 +332,11 @@ async function CheckFontSizes()
 		let yTags = document.getElementsByTagName('y');
 		for (let c = 0; c < yTags.length; c++)
 		{
-			let yTag = yTags[c];
+			const yTag = yTags[c];
 			yTag.style.transform = '';
-			let cell = yTag.closest('td');
-			let sw = cell.scrollWidth;
-			let cw = cell.clientWidth;
+			const cell = yTag.closest('td');
+			const sw = cell.scrollWidth;
+			const cw = cell.clientWidth;
 			if (cw < sw)
 			{
 				let scale = cw / sw;

@@ -76,7 +76,8 @@ y {
 [hide] {display:none;}
 @scope([fx]) {td{border:0px;border-right:1px solid green;vertical-align:top;padding:0px 0px 0px 0px;white-space:nowrap;overflow-x:clip;}}
 [B3D] {
-            background-Image:linear-gradient(to bottom,pink, red, maroon);
+            background-Image:linear-gradient(to bottom,lightblue, blue, navy);
+            //background-Image:linear-gradient(to bottom,pink, red, maroon);
             background-Size:100% 3px;
             background-Position:top left;
             background-Repeat:no-repeat;}
@@ -107,7 +108,7 @@ v1 {display:inline-block;line-Height:1;position:absolute;top:1px;left:1px;font-s
                     #pardiv {background-color:white !important;height:auto !important;overflow:visible:important; width:auto !important;}}
 [VAM] {vertical-align:middle}
 [VAB] {vertical-align:bottom}
-[wr] {vertical-align:-11.34375ex}
+[wr] {vertical-align:-11.61875ex}
 [hr] {vertical-align:-11.59375ex}
 [or] {vertical-align:-12.65625ex}
 [cross] {
