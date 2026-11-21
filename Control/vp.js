@@ -1627,9 +1627,9 @@ function CheckForAutoScroll(instant, lowBarData)
 		const parts = document.getElementsByName('SHR');
 		parts.forEach(element => element.checked = getValue(element.id, true));
 		setPartVisibility();
-		const showhides = document.getElementsByName('SHB');
-		showhides.forEach(element => {element.checked = getValue(element.id, true);})
-		setShowHides();
+		const showHides = document.getElementsByName('SHB');
+		showHides.forEach(element => {element.checked = getValue(element.id, true);})
+		if (showHides.length>0) setShowHides();
 		UnhideBar();
 		document.body.addEventListener('dblclick', UnhideBar);
 		mixer.addEventListener('pause', OnPause);

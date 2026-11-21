@@ -720,8 +720,8 @@ static Note = class
 		}
 		else
 		{
-			const midi = MusicScale.#noteToMidi(noteName);
-			this.freq = MusicScale.#midiToFreq(midi);
+			this.midi = MusicScale.#noteToMidi(noteName);
+			this.freq = MusicScale.#midiToFreq(this.midi);
 		}
 		this.duration = duration;
 	}
@@ -729,14 +729,6 @@ static Note = class
 static #audioMidiContext;
 static #currentMelody;
 static #customWave;
-static #getRichWave(ctx)
-{
-	if (this.#customWave) return this.#customWave;
-	const real = new Float32Array([0, 1.0, 0.25, 0.08]);
-	const imag = new Float32Array(real.length);
-	this.#customWave = ctx.createPeriodicWave(real, imag);
-	return this.#customWave;
-}
 static
 {
 	MusicScale.#audioMidiContext = null;
@@ -781,6 +773,14 @@ pluck: { tail: 0.08, attack: 0.008, masterVol: 0.85 },
 medium: { tail: 0.35, attack: 0.012, masterVol: 0.70 },
 harp: { tail: 1.20, attack: 0.015, masterVol: 0.55 }
 };
+static #getRichWave(ctx)
+{
+	if (this.#customWave) return this.#customWave;
+	const real = new Float32Array([0, 1.0, 0.25, 0.08]);
+	const imaginary = new Float32Array(real.length);
+	this.#customWave = ctx.createPeriodicWave(real, imaginary);
+	return this.#customWave;
+}
 static #playMelody(notes, sustain = 'harp')
 {
 	if (MusicScale.#audioMidiContext === null) MusicScale.#audioMidiContext = new AudioContext();
@@ -803,7 +803,9 @@ static #playMelody(notes, sustain = 'harp')
 		const noteEnd = noteStart + note.duration +  cfg.tail;
 		const osc = ctx.createOscillator();
 		osc.setPeriodicWave(this.#getRichWave(ctx));
-		osc.frequency.setValueAtTime(note.freq * 1.004, noteStart);
+		const t = Math.max(0, Math.min(1, (note.midi - 40) / 24));
+		const smoothBoost = 1 + (0.004 * t);
+		osc.frequency.setValueAtTime(note.freq * smoothBoost, noteStart);
 		osc.frequency.exponentialRampToValueAtTime(note.freq, noteStart + 0.02);
 		const filter = ctx.createBiquadFilter();
 		filter.type = 'lowpass';
