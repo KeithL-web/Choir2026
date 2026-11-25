@@ -781,6 +781,28 @@ static #getRichWave(ctx)
 	this.#customWave = ctx.createPeriodicWave(real, imaginary);
 	return this.#customWave;
 }
+static #createCustomWave(audioCtx, type)
+{
+	if (this.#customWave) return this.#customWave;
+	let real, imaginary;
+	switch (type)
+	{
+		case 'warmBass':
+		real = new Float32Array([0, 0, 0, 0, 0]);
+		imaginary = new Float32Array([0, 1.0, 0.55, 0.25, 0.08]);
+		break;
+		case 'hollowOrgan':
+		real = new Float32Array([0, 0, 0, 0, 0, 0]);
+		imaginary = new Float32Array([0, 1.0, 0.1, 0.6, 0.05, 0.3]);
+		break;
+		case 'glassyBell':
+		real = new Float32Array([0, 0.2, 0.4, 0.1, 0.3, 0.2]);
+		imaginary = new Float32Array([0, 0.8, 0.3, 0.5, 0.1, 0.2]);
+		break;
+	}
+	this.#customWave = audioCtx.createPeriodicWave(real, imaginary, { disableNormalization: false });
+	return this.#customWave;
+}
 static #playMelody(notes, sustain = 'harp')
 {
 	if (MusicScale.#audioMidiContext === null) MusicScale.#audioMidiContext = new AudioContext();
@@ -802,10 +824,8 @@ static #playMelody(notes, sustain = 'harp')
 	{
 		const noteEnd = noteStart + note.duration +  cfg.tail;
 		const osc = ctx.createOscillator();
-		osc.setPeriodicWave(this.#getRichWave(ctx));
-		const t = Math.max(0, Math.min(1, (note.midi - 40) / 24));
-		const smoothBoost = 1 + (0.004 * t);
-		osc.frequency.setValueAtTime(note.freq * smoothBoost, noteStart);
+		osc.setPeriodicWave(this.#createCustomWave(ctx, 'glassyBell'));
+		osc.frequency.setValueAtTime(note.freq, noteStart);
 		osc.frequency.exponentialRampToValueAtTime(note.freq, noteStart + 0.02);
 		const filter = ctx.createBiquadFilter();
 		filter.type = 'lowpass';
@@ -819,7 +839,7 @@ static #playMelody(notes, sustain = 'harp')
 		filter.connect(voiceGain);
 		voiceGain.connect(masterGain);
 		osc.start(noteStart);
-		osc.stop(noteEnd + 0.02);
+		osc.stop(noteEnd);
 		const voice = { osc, filter, voiceGain };
 		activeVoices.add(voice);
 		osc.onended = () =>

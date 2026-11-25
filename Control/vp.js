@@ -149,6 +149,7 @@ async function SetFontEnables()
 		document.getElementById("lyrics").style.fontSize = fontSize + '%';
 		btnNorm.innerHTML = 5 * Math.round(fontSize / 5) + "<sup>%</sup>";
 		ToPixels(fontSize);
+		saveValue("fontSize", fontSize);
 		CheckFontSizes();
 	}
 	finally
@@ -737,7 +738,7 @@ function CheckForAutoScroll(instant, lowBarData)
 			let total = 0;
 			let firstCellIndex = -1;
 			let prevCell = null;
-			let oldOffset=0;
+			let oldOffset = 0;
 			for (let i = 0; i < td.length; i++)
 			{
 				let cell = td[i];
@@ -1089,6 +1090,7 @@ function CheckForAutoScroll(instant, lowBarData)
 					oldBeatSize = beatSize;
 					if (oldBeatSize !== beatSize) changeSig = true;
 				}
+				else row.setAttribute('bs', oldBeatSize);
 				if (row.hasAttribute('pb'))
 				{
 					beatsPerBar = parseInt(row.getAttribute('pb'));
@@ -1335,8 +1337,7 @@ function CheckForAutoScroll(instant, lowBarData)
 		innerCell = innerTable.insertRow().insertCell();
 		innerCell.innerText = 'When a row is clicked,';
 		CreateRadio('nothing', 'RC', 'do nothing', 'When selected, clicking a row will have no effect', innerTable.insertRow().insertCell(), DoWhatOnClick);
-		radioPlayOnClick = CreateRadio('play', 'RC', 'play music', 'When selected, the music will start playing at the point where the table is clicked', innerTable.insertRow().insertCell(), DoWhatOnClick);
-		radioPlayOnClick.checked = true;
+		CreateRadio('play', 'RC', 'play music', 'When selected, the music will start playing at the point where the table is clicked', innerTable.insertRow().insertCell(), DoWhatOnClick);
 		CreateRadio('sync', 'RC', 'play synced', 'Same as "play music", but  audio lag will be accounted for so that your click syncs with the external music which as assumed to be playing at the exact same speed. This is required if you need to sync with external source, especially on a hand-held device - however, drift is inevitable and resitance is futile! You might want to turn sound on THIS device to zero', innerTable.insertRow().insertCell(), DoWhatOnClick);
 		CreateRadio('highlight', 'RC', 'highlight row only', 'When selected, the music will not play but row will be highlighted', innerTable.insertRow().insertCell(), DoWhatOnClick);
 		playHow = 'play';
@@ -1624,6 +1625,9 @@ function CheckForAutoScroll(instant, lowBarData)
 		SetBass(getValue('Bass', 50));
 		SetTreble(getValue('Treble', 50));
 		SortParts(getValue('SortParts', 'SALTBM'));
+		DoWhat(getValue('DoWhat', "play"));
+		fontSize = getValue('fontSize', 100);
+		SetFontEnables();
 		const parts = document.getElementsByName('SHR');
 		parts.forEach(element => element.checked = getValue(element.id, true));
 		setPartVisibility();
@@ -1775,10 +1779,16 @@ function CheckForAutoScroll(instant, lowBarData)
 	function DoWhatOnClick(event)
 	{
 		if (playHow === event.srcElement.id) return;
-		playHow = event.srcElement.id;
+		DoWhat(event.srcElement.id);
+	}
+	function DoWhat(playWhat)
+	{
+		saveValue("DoWhat", playWhat);
+		playHow = playWhat;
 		mixer.syncForClick = playHow === 'sync';
 		if (playHow === 'play'||playHow=='sync') UnlockPlayOnRowClick();
 		else LockPlayOnRowClick();
+		document.getElementById(playWhat).checked = true;
 	}
 	function DoSort(event)
 	{
@@ -2092,7 +2102,7 @@ function CheckForAutoScroll(instant, lowBarData)
 		blnLeftToRight = false;
 		if (resizer === null) return;
 		container.style.flexDirection = 'column';
-		resizer.style.width = '100%';
+		resizer.style.width = '';
 		resizer.style.height = resizerSize+'px';
 		resizer.style.cursor = 'ns-resize';
 		let avail = container.offsetHeight - resizerSize;
@@ -2240,47 +2250,58 @@ function CheckForAutoScroll(instant, lowBarData)
 	}
 }
 const theRatio = exRatio(document.body);
+function GetNote(td, scale)
+{
+	const x = td.querySelector('x[v]');
+	if (x)
+	{
+		const length = td.getAttribute("len") * scale;
+		const note = x.getAttribute('v')
+		const nt = new MusicScale.Note(note, length);
+		return nt;
+	}
+	return null;
+}
+function playMidi(partRow, td=null)
+{
+	const mainRow = partRow.parentElement.closest('tr');
+	const beatSize = Number(mainRow.getAttribute('bs'));
+	const unitsPerBeat = 192 / beatSize;
+	const scale = mainRow.getAttribute("ms") / unitsPerBeat / 1000;
+	const arrNotes = [];
+	if (td == null)
+	{
+		const cells = partRow.querySelectorAll('td[o]');
+		for (let c = 0; c < cells.length; c++)
+		{
+			const td = cells[c];
+			const nt = GetNote(td, scale);
+			if (nt != null) arrNotes.push(nt);
+		}
+	}
+	else
+	{
+		const nt = GetNote(td, scale);
+		if (nt != null) arrNotes.push(nt);
+	}
+	arrNotes.push(new MusicScale.Note('r', 0.01));
+	MusicScale.playNotes(arrNotes);
+}
 function partsClick(event)
 {
 	const tab = event.currentTarget;
 	const row = tab.parentElement.parentElement;
-	const mainRow = row.parentElement.closest('tr');
-	const barLength = mainRow.getAttribute("ms") * mainRow.getAttribute("pb") / 1000;
-	const x = row.querySelectorAll('x[v]');
-	const cells = row.querySelectorAll('td[o]');
-	const arrNotes = [];
-	for (let c = 0; c < cells.length; c++)
-	{
-		const td = cells[c];
-		const length = td.getAttribute("len") / row.getAttribute("tot") * barLength;
-		const x = td.querySelector('x[v]');
-		if (x)
-		{
-			const note = x.getAttribute('v')
-			const nt = new MusicScale.Note(note, length);
-			arrNotes.push(nt);
-		}
-	}
-	MusicScale.playNotes(arrNotes);
+	playMidi(row);
 }
 function SoundNote(event)
 {
 	const td = event.target;
-	const tr = td.parentElement;
-	const row = tr.parentElement.closest('tr');
-	const noteElement = event.target.closest('x[v]') || event.target.querySelector('x[v]');
+	const partRow = td.parentElement;
+	const noteElement = td.closest('x[v]') || event.target.querySelector('x[v]');
 	if (noteElement)
 	{
 		var rect = noteElement.getBoundingClientRect();
-		if (rect.contains(event.clientX, event.clientY))
-		{
-			const barLength = row.getAttribute("ms") * row.getAttribute("pb") / 1000;
-			const length = td.getAttribute("len") / tr.getAttribute("tot")*barLength;
-			const note = noteElement.getAttribute('v')
-			MusicScale.playNote(note, length);
-			MusicScale.audioMidiContext
-			return;
-		}
+		if (rect.contains(event.clientX, event.clientY)) playMidi(partRow, td);
 	}
 }
 function ShowNote(event)
